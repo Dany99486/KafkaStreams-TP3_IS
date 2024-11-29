@@ -1,0 +1,15 @@
+{
+  "name": "jdbc-source-route-suppliers",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+    "tasks.max": "1",
+    "connection.url": "jdbc:postgresql://database:5432/project3",
+    "connection.user": "postgres",
+    "connection.password": "My01pass",
+    "mode": "incrementing",
+    "incrementing.column.name": "id",
+    "table.whitelist": "route_suppliers",
+    "topic.prefix": "DBInfo-",
+    "poll.interval.ms": "5000"
+  }
+}

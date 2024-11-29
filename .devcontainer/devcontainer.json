@@ -1,0 +1,17 @@
+{
+	"name": "Maven+Java+Kafka+PostgreSQL",
+	"dockerComposeFile": "docker-compose-cluster.yml",
+	"service": "command-line",
+	"workspaceFolder": "/workspace",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"dotjoshjohnson.xml",
+				"vscjava.vscode-maven",
+				"vscjava.vscode-java-pack",
+				"redhat.fabric8-analytics",
+				"mhutchie.git-graph"
+			]
+		}
+	}
+}
