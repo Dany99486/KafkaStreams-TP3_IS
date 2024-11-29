@@ -21,8 +21,8 @@ public class RoutesProducer {
         properties.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 
         try (Producer<String, String> producer = new KafkaProducer<>(properties)) {
-            String[] suppliers = {"Supplier A", "Supplier B", "Supplier C", "Supplier D", 
-                                  "Supplier E", "Supplier F", "Supplier G", "Supplier H", 
+            String[] suppliers = {"Supplier A", "Supplier B", "Supplier C", "Supplier D",
+                                  "Supplier E", "Supplier F", "Supplier G", "Supplier H",
                                   "Supplier I", "Supplier J"};
             String[] transportTypes = {"Bus", "Taxi", "Train", "Metro", "Scooter"};
             Random random = new Random();
@@ -40,12 +40,35 @@ public class RoutesProducer {
                     int capacity = random.nextInt(200) + 1;
                     String operator = suppliers[random.nextInt(suppliers.length)];
 
-                    String messageValue = String.format(
-                            "{\"routeId\":\"%s\", \"origin\":\"%s\", \"destination\":\"%s\", \"transportType\":\"%s\", \"capacity\":%d, \"operator\":\"%s\"}",
+                    // Construindo o schema manualmente
+                    String schema = """
+                        {
+                            "type": "struct",
+                            "fields": [
+                                {"field": "routeId", "type": "string"},
+                                {"field": "origin", "type": "string"},
+                                {"field": "destination", "type": "string"},
+                                {"field": "transportType", "type": "string"},
+                                {"field": "capacity", "type": "int32"},
+                                {"field": "operator", "type": "string"}
+                            ]
+                        }
+                    """;
+
+                    // Construindo o payload manualmente
+                    String payload = String.format(
+                            "{ \"routeId\": \"%s\", \"origin\": \"%s\", \"destination\": \"%s\", \"transportType\": \"%s\", \"capacity\": %d, \"operator\": \"%s\" }",
                             routeId, origin, destination, transportType, capacity, operator
                     );
 
-                    ProducerRecord<String, String> record = new ProducerRecord<>(TOPIC_NAME, routeId, messageValue);
+                    // Mensagem final com schema e payload
+                    String message = String.format(
+                            "{ \"schema\": %s, \"payload\": %s }",
+                            schema, payload
+                    );
+
+                    // Enviando a mensagem
+                    ProducerRecord<String, String> record = new ProducerRecord<>(TOPIC_NAME, routeId, message);
                     producer.send(record, (metadata, exception) -> {
                         if (exception != null) {
                             System.err.println("Erro ao enviar mensagem: " + exception.getMessage());
@@ -55,10 +78,10 @@ public class RoutesProducer {
                         }
                     });
                 }
-            }, 0, 5000);
+            }, 0, 5000); // 0 delay inicial, 10 segundos de intervalo
 
             System.out.println("Produtor de rotas iniciado. Pressione Ctrl+C para encerrar.");
-            Thread.sleep(Long.MAX_VALUE);
+            Thread.sleep(Long.MAX_VALUE); // Manter o programa rodando
         } catch (Exception e) {
             System.err.println("Erro ao criar o produtor Kafka: " + e.getMessage());
         }

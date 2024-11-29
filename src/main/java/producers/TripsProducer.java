@@ -37,12 +37,35 @@ public class TripsProducer {
                     String transportType = transportTypes[random.nextInt(transportTypes.length)];
                     String passengerName = "Passenger_" + random.nextInt(1000);
 
-                    String messageValue = String.format(
-                            "{\"tripId\":\"%s\", \"routeId\":\"%s\", \"origin\":\"%s\", \"destination\":\"%s\", \"transportType\":\"%s\", \"passengerName\":\"%s\"}",
+
+                    String schema = """
+                        {
+                            "type": "struct",
+                            "fields": [
+                                {"field": "tripId", "type": "string"},
+                                {"field": "routeId", "type": "string"},
+                                {"field": "origin", "type": "string"},
+                                {"field": "destination", "type": "string"},
+                                {"field": "transportType", "type": "string"},
+                                {"field": "passengerName", "type": "string"}
+                            ]
+                        }
+                    """;
+
+                    //Payload
+                    String payload = String.format(
+                            "{ \"tripId\": \"%s\", \"routeId\": \"%s\", \"origin\": \"%s\", \"destination\": \"%s\", \"transportType\": \"%s\", \"passengerName\": \"%s\" }",
                             tripId, routeId, origin, destination, transportType, passengerName
                     );
 
-                    ProducerRecord<String, String> record = new ProducerRecord<>(TOPIC_NAME, tripId, messageValue);
+                    //Mensagem final com schema e payload
+                    String message = String.format(
+                            "{ \"schema\": %s, \"payload\": %s }",
+                            schema, payload
+                    );
+
+
+                    ProducerRecord<String, String> record = new ProducerRecord<>(TOPIC_NAME, tripId, message);
                     producer.send(record, (metadata, exception) -> {
                         if (exception != null) {
                             System.err.println("Erro ao enviar mensagem: " + exception.getMessage());

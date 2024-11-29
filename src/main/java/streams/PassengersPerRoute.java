@@ -6,6 +6,7 @@ import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KTable;
+import org.json.JSONObject;
 
 import java.util.Properties;
 
@@ -20,25 +21,35 @@ public class PassengersPerRoute {
 
         StreamsBuilder builder = new StreamsBuilder();
 
+        // Consome mensagens do tópico "Trips_topic"
         KStream<String, String> tripsStream = builder.stream("Trips_topic");
 
+        // Extrai o campo "routeId" do payload
         KTable<String, Long> passengersPerRoute = tripsStream
-            .mapValues(value -> {
-                //Parseia do JSON para extrair o routeId
-                //Assumindo que o valor seja algo como {"tripId":"Trip_1", "routeId":"Route_1", "origin":"Origin_X", ...}
-                String routeId = value.split("\"routeId\":\"")[1].split("\"")[0];
-                return routeId;
+            .mapValues((String value) -> {  // Adicionando tipo explícito no lambda
+                try {
+                    JSONObject json = new JSONObject(value);
+                    JSONObject payload = json.getJSONObject("payload");
+                    return payload.getString("routeId");
+                } catch (Exception e) {
+                    System.err.println("Erro ao parsear JSON: " + e.getMessage());
+                    return null; // Retorna null se houver erro
+                }
             })
+            .filter((key, routeId) -> routeId != null) // Filtra mensagens inválidas
             .groupBy((key, routeId) -> routeId)
             .count();
+
 
         passengersPerRoute.toStream().foreach((routeId, count) -> 
             System.out.printf("Route ID: %s, Passengers: %d%n", routeId, count)
         );
 
+
         KafkaStreams streams = new KafkaStreams(builder.build(), props);
         streams.start();
 
+        
         Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
     }
 }

@@ -1,0 +1,19 @@
+{
+  "name": "routes-sink-connector",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "tasks.max": "1",
+    "topics": "Routes_topic",
+    "connection.url": "jdbc:postgresql://database:5432/project3",
+    "connection.user": "postgres",
+    "connection.password": "My01pass",
+    "insert.mode": "upsert",
+    "pk.mode": "record_value",
+    "pk.fields": "routeId",
+    "auto.create": "true",
+    "auto.evolve": "true",
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "org.apache.kafka.connect.json.JsonConverter",
+    "value.converter.schemas.enable": "true"
+  }
+}
