@@ -15,6 +15,9 @@ import java.util.Properties;
 
 public class PassengersPerRoute {
 
+    private static final String OUTPUT_TOPIC = "projeto3_passengers_per_route";
+    private static final String INPUT_TRIPS_TOPIC = "Trips_topic";
+
     public static void main(String[] args) {
         // Configuração para Kafka Streams
         Properties props = new Properties();
@@ -24,14 +27,12 @@ public class PassengersPerRoute {
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
 
 
-        String outputTopic = "projeto3_passengers_per_route";
-
         KafkaTopicUtils topicUtils = new KafkaTopicUtils(props);
-        topicUtils.createTopicIfNotExists(outputTopic, 3, (short) 1);
+        topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
 
         StreamsBuilder builder = new StreamsBuilder();
 
-        KStream<String, String> tripsStream = builder.stream("Trips_topic");
+        KStream<String, String> tripsStream = builder.stream(INPUT_TRIPS_TOPIC);
 
         KTable<String, Long> passengersPerRoute = tripsStream
             .mapValues((String value) -> {
@@ -67,7 +68,7 @@ public class PassengersPerRoute {
 
                 return String.format("{\"schema\": %s, \"payload\": %s}", schema, payload);
             })
-            .to(outputTopic, Produced.with(Serdes.String(), Serdes.String()));
+            .to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String()));
 
         KafkaStreams streams = new KafkaStreams(builder.build(), props);
         streams.start();

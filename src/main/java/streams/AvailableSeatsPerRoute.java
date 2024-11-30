@@ -16,6 +16,8 @@ import java.util.Properties;
 public class AvailableSeatsPerRoute {
 
     private static final String OUTPUT_TOPIC = "projeto3_available_seats_per_route";
+    private static final String INPUT_ROUTES_TOPIC = "Routes_topic";
+    private static final String INPUT_TRIPS_TOPIC = "Trips_topic";
 
     public static void main(String[] args) {
         Properties props = new Properties();
@@ -30,7 +32,7 @@ public class AvailableSeatsPerRoute {
         StreamsBuilder builder = new StreamsBuilder();
 
         
-        KStream<String, String> routesStream = builder.stream("Routes_topic");
+        KStream<String, String> routesStream = builder.stream(INPUT_ROUTES_TOPIC);
 
         KTable<String, Integer> routeCapacities = routesStream
             .mapValues(value -> {
@@ -54,7 +56,7 @@ public class AvailableSeatsPerRoute {
             );
 
 
-        KStream<String, String> tripsStream = builder.stream("Trips_topic");
+        KStream<String, String> tripsStream = builder.stream(INPUT_TRIPS_TOPIC);
 
         KTable<String, Long> passengersPerRoute = tripsStream
             .mapValues(value -> {
