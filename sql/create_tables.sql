@@ -6,6 +6,14 @@ CREATE TABLE route_suppliers (
 
 -- Inserção de dados nas tabelas
 INSERT INTO route_suppliers (name)
-VALUES 
+VALUES
 ('Supplier A'),
-('Supplier B');
+('Supplier B'),
+('Supplier C'),
+('Supplier D'),
+('Supplier E'),
+('Supplier F'),
+('Supplier G'),
+('Supplier H'),
+('Supplier I'),
+('Supplier J');
