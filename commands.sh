@@ -39,7 +39,9 @@ ls /brokers/ids
 
 # --- Postgresql ---
 
-psql -h postgres -p 5432 -U postgres # Login with user postgres
+psql -h database -p 5432 -U postgres -d project3
 \l               # List databases
 \c project3      # Connect to project3 database
 \dt              # List tables
+
+curl -X POST http://connect:8083/connectors -H "Content-Type: application/json" -d @workspace/config/sink-passangers_per_route.json

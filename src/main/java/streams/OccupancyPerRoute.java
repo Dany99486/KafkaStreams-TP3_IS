@@ -91,15 +91,14 @@ public class OccupancyPerRoute {
                     {
                         "type": "struct",
                         "fields": [
-                            {"field": "routeId", "type": "string"},
                             {"field": "occupancyPercentage", "type": "double"}
                         ]
                     }
                 """;
 
                     String payload = String.format(
-                            "{\"routeId\": \"%s\", \"occupancyPercentage\": %.2f}",
-                            routeId, occupancyPercentage
+                            "{\"occupancyPercentage\": %.2f}",
+                            occupancyPercentage
                     );
 
                     return String.format("{\"schema\": %s, \"payload\": %s}", schema, payload);

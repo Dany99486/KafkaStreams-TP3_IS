@@ -34,7 +34,7 @@ public class TotalPassengers {
         KStream<String, String> tripsStream = builder.stream(INPUT_TRIPS_TOPIC);
 
         KTable<String, Long> totalPassengers = tripsStream
-                .groupBy((key, value) -> "total_passengers") // Agrupa todas as mensagens em uma única chave
+                .groupBy((key, value) -> "totalPassangers") // Agrupa todas as mensagens em uma única chave
                 .count(); // Conta o total de mensagens
 
         // Envia o total para o tópico de saída
@@ -45,14 +45,13 @@ public class TotalPassengers {
                     {
                         "type": "struct",
                         "fields": [
-                            {"field": "routeId", "type": "string"},
                             {"field": "totalPassengers", "type": "int64"}
                         ]
                     }
                     """;
 
                     String payload = String.format(
-                            "{\"routeId\": \"total_passengers\", \"totalPassengers\": %d}",
+                            "{\"totalPassengers\": %d}",
                             total
                     );
 

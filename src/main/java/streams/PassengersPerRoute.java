@@ -55,15 +55,14 @@ public class PassengersPerRoute {
                     {
                         "type": "struct",
                         "fields": [
-                            {"field": "routeId", "type": "string"},
                             {"field": "passengerCount", "type": "int64"}
                         ]
                     }
                 """;
 
                 String payload = String.format(
-                    "{\"routeId\": \"%s\", \"passengerCount\": %d}",
-                    routeId, count
+                    "{\"passengerCount\": %d}",
+                     count
                 );
 
                 return String.format("{\"schema\": %s, \"payload\": %s}", schema, payload);
