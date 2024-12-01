@@ -8,7 +8,7 @@ services:
       - 5432:5432
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: My01pass
+      POSTGRES_PASSWORD: postgres
       POSTGRES_DB: project3
     volumes:
       - ../sql/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql
