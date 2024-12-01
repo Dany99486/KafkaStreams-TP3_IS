@@ -22,7 +22,7 @@ public class OccupancyPerRoute {
     public static void main(String[] args) {
         // Configuração para Kafka Streams
         Properties props = new Properties();
-        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "occupancy-per-route-app");
+        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "occupancy-per-route-app15");
         props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "broker1:9092,broker2:9093,broker3:9094");
         props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
@@ -92,7 +92,7 @@ public class OccupancyPerRoute {
                         "type": "struct",
                         "fields": [
                             {"field": "routeId", "type": "string"},
-                            {"field": "occupancyPercentage", "type": "float64"}
+                            {"field": "occupancyPercentage", "type": "double"}
                         ]
                     }
                 """;
