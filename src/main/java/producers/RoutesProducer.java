@@ -25,11 +25,11 @@ public class RoutesProducer {
                                   "Supplier E", "Supplier F", "Supplier G", "Supplier H",
                                   "Supplier I", "Supplier J"};
             String[] transportTypes = {"Bus", "Taxi", "Train", "Metro", "Scooter"};
-            Random random = new Random();
+            Random random = new Random(5);
             Timer timer = new Timer();
 
             timer.scheduleAtFixedRate(new TimerTask() {
-                int routeCounter = 1;
+                int routeCounter = 2000;
 
                 @Override
                 public void run() {
@@ -40,7 +40,7 @@ public class RoutesProducer {
                     int capacity = random.nextInt(200) + 1;
                     String operator = suppliers[random.nextInt(suppliers.length)];
 
-                    // Construindo o schema manualmente
+                    // Schemas
                     String schema = """
                         {
                             "type": "struct",
@@ -55,7 +55,7 @@ public class RoutesProducer {
                         }
                     """;
 
-                    // Construindo o payload manualmente
+                    //Payload
                     String payload = String.format(
                             "{ \"routeId\": \"%s\", \"origin\": \"%s\", \"destination\": \"%s\", \"transportType\": \"%s\", \"capacity\": %d, \"operator\": \"%s\" }",
                             routeId, origin, destination, transportType, capacity, operator

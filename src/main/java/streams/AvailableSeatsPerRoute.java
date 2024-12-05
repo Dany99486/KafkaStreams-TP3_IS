@@ -10,7 +10,7 @@ import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Produced;
 import org.json.JSONObject;
 import utils.KafkaTopicUtils;
-
+// Tem de ser o sum of capacities de cada Route (usar apenas Routes_topic)
 import java.util.Properties;
 
 public class AvailableSeatsPerRoute {

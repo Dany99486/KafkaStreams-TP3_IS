@@ -22,7 +22,7 @@ public class TripsProducer {
 
         try (Producer<String, String> producer = new KafkaProducer<>(properties)) {
             String[] transportTypes = {"Bus", "Taxi", "Train", "Metro", "Scooter"};
-            Random random = new Random();
+            Random random = new Random(5);
             Timer timer = new Timer();
 
             timer.scheduleAtFixedRate(new TimerTask() {
