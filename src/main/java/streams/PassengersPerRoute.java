@@ -7,8 +7,12 @@ import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Produced;
-import org.json.JSONObject;
 
+import classes.Trip;
+
+import org.apache.kafka.streams.kstream.Consumed;
+import utils.JsonDeserializer;
+import utils.JsonSerializer;
 import utils.KafkaTopicUtils;
 
 import java.util.Properties;
@@ -26,48 +30,49 @@ public class PassengersPerRoute {
         props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
 
-
         KafkaTopicUtils topicUtils = new KafkaTopicUtils(props);
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
 
         StreamsBuilder builder = new StreamsBuilder();
 
-        KStream<String, String> tripsStream = builder.stream(INPUT_TRIPS_TOPIC);
+        // Usa JsonSerializer e JsonDeserializer para criar o Serde
+        JsonSerializer<Trip> tripSerializer = new JsonSerializer<>();
+        JsonDeserializer<Trip> tripDeserializer = new JsonDeserializer<>(Trip.class);
 
+        // Cria o Serde personalizado para Trip
+        var tripSerde = Serdes.serdeFrom(tripSerializer, tripDeserializer);
+
+        // Configura o stream com o Serde personalizado
+        KStream<String, Trip> tripsStream = builder.stream(
+            INPUT_TRIPS_TOPIC,
+            Consumed.with(Serdes.String(), tripSerde)
+        );
+
+        // Lógica de processamento
         KTable<String, Long> passengersPerRoute = tripsStream
-            .mapValues((String value) -> {
-                try {
-                    JSONObject json = new JSONObject(value);
-                    JSONObject payload = json.getJSONObject("payload");
-                    return payload.getString("routeId");
-                } catch (Exception e) {
-                    System.err.println("Erro ao parsear JSON: " + e.getMessage());
-                    return null; // Retorna null se houver erro
-                }
-            })
-            .filter((key, routeId) -> routeId != null)
-            .groupBy((key, routeId) -> routeId)
-            .count();
+                .filter((key, trip) -> trip != null && trip.getRouteId() != null) // Filtra mensagens inválidas
+                .groupBy((key, trip) -> trip.getRouteId())
+                .count();
 
         passengersPerRoute.toStream()
-            .mapValues((routeId, count) -> {
-                String schema = """
-                    {
-                        "type": "struct",
-                        "fields": [
-                            {"field": "passengerCount", "type": "int64"}
-                        ]
-                    }
-                """;
+                .mapValues((routeId, count) -> {
+                    String schema = """
+                        {
+                            "type": "struct",
+                            "fields": [
+                                {"field": "passengerCount", "type": "int64"}
+                            ]
+                        }
+                    """;
 
-                String payload = String.format(
-                    "{\"passengerCount\": %d}",
-                     count
-                );
+                    String payload = String.format(
+                            "{\"passengerCount\": %d}",
+                            count
+                    );
 
-                return String.format("{\"schema\": %s, \"payload\": %s}", schema, payload);
-            })
-            .to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String()));
+                    return String.format("{\"schema\": %s, \"payload\": %s}", schema, payload);
+                })
+                .to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String()));
 
         KafkaStreams streams = new KafkaStreams(builder.build(), props);
         streams.start();

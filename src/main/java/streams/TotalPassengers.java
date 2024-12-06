@@ -4,12 +4,14 @@ import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
+import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KTable;
-import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Produced;
-import org.json.JSONObject;
+import utils.JsonDeserializer;
+import utils.JsonSerializer;
 import utils.KafkaTopicUtils;
+import classes.Trip;
 
 import java.util.Properties;
 
@@ -17,6 +19,7 @@ public class TotalPassengers {
 
     private static final String OUTPUT_TOPIC = "projeto3_total_passengers";
     private static final String INPUT_TRIPS_TOPIC = "Trips_topic";
+
     public static void main(String[] args) {
         // Configuração para Kafka Streams
         Properties props = new Properties();
@@ -30,11 +33,19 @@ public class TotalPassengers {
 
         StreamsBuilder builder = new StreamsBuilder();
 
-        // Processar trips para calcular o total de passageiros
-        KStream<String, String> tripsStream = builder.stream(INPUT_TRIPS_TOPIC);
+        // Usa JsonSerializer e JsonDeserializer para Trip
+        JsonDeserializer<Trip> tripDeserializer = new JsonDeserializer<>(Trip.class);
+        JsonSerializer<Trip> tripSerializer = new JsonSerializer<>();
 
+        // Configura o stream com JsonSerializer e JsonDeserializer
+        KStream<String, Trip> tripsStream = builder.stream(
+                INPUT_TRIPS_TOPIC,
+                Consumed.with(Serdes.String(), Serdes.serdeFrom(tripSerializer, tripDeserializer))
+        );
+
+        // Processar trips para calcular o total de passageiros
         KTable<String, Long> totalPassengers = tripsStream
-                .groupBy((key, value) -> "totalPassangers") // Agrupa todas as mensagens em uma única chave
+                .groupBy((key, trip) -> "totalPassengers") // Agrupa todas as mensagens em uma única chave
                 .count(); // Conta o total de mensagens
 
         // Envia o total para o tópico de saída

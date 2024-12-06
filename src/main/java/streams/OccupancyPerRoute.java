@@ -4,12 +4,16 @@ import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
+import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Produced;
-import org.json.JSONObject;
+import utils.JsonDeserializer;
+import utils.JsonSerializer;
 import utils.KafkaTopicUtils;
+import classes.Route;
+import classes.Trip;
 
 import java.util.Properties;
 
@@ -22,79 +26,70 @@ public class OccupancyPerRoute {
     public static void main(String[] args) {
         // Configuração para Kafka Streams
         Properties props = new Properties();
-        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "occupancy-per-route-app15");
+        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "occupancy-per-route-app");
         props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "broker1:9092,broker2:9093,broker3:9094");
         props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-
 
         KafkaTopicUtils topicUtils = new KafkaTopicUtils(props);
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
 
         StreamsBuilder builder = new StreamsBuilder();
 
-        // Process route capacities
-        KStream<String, String> routesStream = builder.stream(INPUT_ROUTES_TOPIC);
+        // Usa JsonSerializer e JsonDeserializer diretamente
+        JsonSerializer<Route> routeSerializer = new JsonSerializer<>();
+        JsonDeserializer<Route> routeDeserializer = new JsonDeserializer<>(Route.class);
+        JsonSerializer<Trip> tripSerializer = new JsonSerializer<>();
+        JsonDeserializer<Trip> tripDeserializer = new JsonDeserializer<>(Trip.class);
 
+        // Configura streams para Routes e Trips
+        KStream<String, Route> routesStream = builder.stream(
+                INPUT_ROUTES_TOPIC,
+                Consumed.with(Serdes.String(), Serdes.serdeFrom(routeSerializer, routeDeserializer))
+        );
+
+        KStream<String, Trip> tripsStream = builder.stream(
+                INPUT_TRIPS_TOPIC,
+                Consumed.with(Serdes.String(), Serdes.serdeFrom(tripSerializer, tripDeserializer))
+        );
+
+        // Processar capacidades de rotas
         KTable<String, Integer> routeCapacities = routesStream
-                .mapValues(value -> {
-                    try {
-                        // Parse o JSON para extrair a capacidade
-                        JSONObject json = new JSONObject(value);
-                        JSONObject payload = json.getJSONObject("payload");
-                        return payload.getInt("capacity"); // Extrai apenas a capacidade
-                    } catch (Exception e) {
-                        System.err.println("Erro ao parsear JSON: " + e.getMessage());
-                        return null; // Retorna null em caso de erro
-                    }
-                })
-                .filter((routeId, capacity) -> capacity != null) // Filtra mensagens inválidas
-                .groupByKey() // Usa a chave já existente no tópico (routeId)
+                .filter((key, route) -> route != null && route.getRouteId() != null)
+                .groupBy((key, route) -> route.getRouteId())
                 .aggregate(
-                        () -> 0, // Inicializa a capacidade como 0
-                        (routeId, newCapacity, currentCapacity) -> newCapacity, // Substitui pelo novo valor
+                        () -> 0,
+                        (routeId, route, totalCapacity) -> totalCapacity + route.getCapacity(),
                         Materialized.with(Serdes.String(), Serdes.Integer())
-                );// key:route_ID value:capacity
+                );
 
-        // Process trips to count passengers
-        KStream<String, String> tripsStream = builder.stream(INPUT_TRIPS_TOPIC);
-
+        //Processar passageiros por rota
         KTable<String, Long> passengersPerRoute = tripsStream
-                .mapValues(value -> {
-                    try {
-                        JSONObject json = new JSONObject(value);
-                        JSONObject payload = json.getJSONObject("payload");
-                        return payload.getString("routeId");
-                    } catch (Exception e) {
-                        System.err.println("Erro ao parsear JSON: " + e.getMessage());
-                        return null;
-                    }
-                })
-                .filter((key, routeId) -> routeId != null) // Filter invalid messages
-                .groupBy((key, routeId) -> routeId) // Group by routeId
+                .filter((key, trip) -> trip != null && trip.getRouteId() != null)
+                .groupBy((key, trip) -> trip.getRouteId())
                 .count(Materialized.with(Serdes.String(), Serdes.Long()));
 
-        // Calculate occupancy percentage
+        //Calcular porcentagem de ocupação
         KTable<String, Double> occupancyPercentagePerRoute = routeCapacities.leftJoin(
                 passengersPerRoute,
                 (capacity, passengers) -> {
-                    if (capacity == 0 || passengers == null) return 0.0; // Avoid division by zero
+                    if (capacity == 0 || passengers == null) return 0.0;
                     return (passengers.doubleValue() / capacity) * 100;
                 },
                 Materialized.with(Serdes.String(), Serdes.Double())
         );
 
-        // Write results to the output topic
+        // Escrever resultado no tópico de saída
         occupancyPercentagePerRoute.toStream()
-                .mapValues((routeId, occupancyPercentage) -> {
+                .mapValues(occupancyPercentage -> {
                     String schema = """
-                    {
-                        "type": "struct",
-                        "fields": [
-                            {"field": "occupancyPercentage", "type": "double"}
-                        ]
-                    }
-                """;
+                        {
+                            "type": "struct",
+                            "fields": [
+                                {"field": "occupancyPercentage", "type": "double"}
+                            ]
+                        }
+                    """;
 
                     String payload = String.format(
                             "{\"occupancyPercentage\": %.2f}",

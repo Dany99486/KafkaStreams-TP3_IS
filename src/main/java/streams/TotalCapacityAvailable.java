@@ -4,14 +4,17 @@ import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
+import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.Grouped;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.KeyValue;
-import org.json.JSONObject;
+import utils.JsonDeserializer;
+import utils.JsonSerializer;
 import utils.KafkaTopicUtils;
+import classes.Route;
 
 import java.util.Properties;
 
@@ -33,44 +36,44 @@ public class TotalCapacityAvailable {
 
         StreamsBuilder builder = new StreamsBuilder();
 
-        //Capacidades por rota
-        KStream<String, String> routesStream = builder.stream(INPUT_ROUTES_TOPIC);
+        // Usa JsonSerializer e JsonDeserializer para Route
+        JsonDeserializer<Route> routeDeserializer = new JsonDeserializer<>(Route.class);
+        JsonSerializer<Route> routeSerializer = new JsonSerializer<>();
 
+        // Configura o stream com JsonSerializer e JsonDeserializer
+        KStream<String, Route> routesStream = builder.stream(
+                INPUT_ROUTES_TOPIC,
+                Consumed.with(Serdes.String(), Serdes.serdeFrom(routeSerializer, routeDeserializer))
+        );
+
+        // Capacidades por rota
         KTable<String, Integer> routeCapacities = routesStream
-                .mapValues(value -> {
-                    try {
-                        JSONObject json = new JSONObject(value);
-                        JSONObject payload = json.getJSONObject("payload");
-                        return payload.getInt("capacity");
-                    } catch (Exception e) {
-                        System.err.println("Erro ao parsear JSON: " + e.getMessage());
-                        return null;
-                    }
-                })
-                .filter((routeId, capacity) -> capacity != null)
-                .groupByKey()
-                .aggregate(
-                        () -> 0, 
-                        (routeId, newCapacity, totalCapacity) -> newCapacity,
+        .filter((key, route) -> route != null) // Apenas verifica se o objeto não é nulo
+        .groupBy(
+                (key, route) -> route.getRouteId(), // Usa o routeId como chave
+                Grouped.with(Serdes.String(), Serdes.serdeFrom(routeSerializer, routeDeserializer))
+        )
+        .aggregate(
+                () -> 0,
+                (routeId, route, totalCapacity) -> totalCapacity + route.getCapacity(), // Assume que getCapacity() sempre retorna um valor válido
+                Materialized.with(Serdes.String(), Serdes.Integer())
+        );
+
+        // Soma total das capacidades
+        KTable<String, Integer> totalCapacity = routeCapacities
+                .groupBy(
+                        (routeId, capacity) -> KeyValue.pair("total", capacity), // Agrupa todas as rotas na chave "total"
+                        Grouped.with(Serdes.String(), Serdes.Integer())
+                )
+                .reduce(
+                        Integer::sum, // Soma as capacidades
+                        (oldValue, newValue) -> oldValue - newValue, // Remove capacidades antigas
                         Materialized.with(Serdes.String(), Serdes.Integer())
                 );
 
-        //Somar todas as capacidades
-        KTable<String, Integer> totalCapacity = routeCapacities
-            .groupBy(
-                (routeId, capacity) -> KeyValue.pair("total", capacity), //Agrupa todas as rotas na chave total
-                Grouped.with(Serdes.String(), Serdes.Integer()) 
-            )
-            .reduce(
-                Integer::sum,
-                Integer::sum,
-                Materialized.with(Serdes.String(), Serdes.Integer())
-            );
-        
-
-        //Escrever o resultado no topico
+        // Escrever o resultado no tópico
         totalCapacity.toStream()
-                .mapValues((key, totalCapacityValue) -> {
+                .mapValues(totalCapacityValue -> {
                     String schema = """
                     {
                         "type": "struct",

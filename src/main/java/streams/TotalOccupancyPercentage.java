@@ -4,13 +4,17 @@ import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
+import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.Grouped;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Produced;
 import org.apache.kafka.streams.KeyValue;
-import org.json.JSONObject;
+import utils.JsonDeserializer;
+import utils.JsonSerializer;
+import classes.Route;
+import classes.Trip;
 
 import java.util.Properties;
 
@@ -29,84 +33,82 @@ public class TotalOccupancyPercentage {
 
         StreamsBuilder builder = new StreamsBuilder();
 
-        //Capacidades das rotas
-        KStream<String, String> routesStream = builder.stream(INPUT_ROUTES_TOPIC);
+        // Serializadores e desserializadores personalizados
+        JsonSerializer<Route> routeSerializer = new JsonSerializer<>();
+        JsonDeserializer<Route> routeDeserializer = new JsonDeserializer<>(Route.class);
+        JsonSerializer<Trip> tripSerializer = new JsonSerializer<>();
+        JsonDeserializer<Trip> tripDeserializer = new JsonDeserializer<>(Trip.class);
+
+        // Stream de rotas com serializadores/desserializadores personalizados
+        KStream<String, Route> routesStream = builder.stream(
+                INPUT_ROUTES_TOPIC,
+                Consumed.with(Serdes.String(), Serdes.serdeFrom(routeSerializer, routeDeserializer))
+        );
 
         KTable<String, Integer> routeCapacities = routesStream
-                .mapValues(value -> {
-                    try {
-                        JSONObject json = new JSONObject(value);
-                        JSONObject payload = json.getJSONObject("payload");
-                        return payload.getInt("capacity");
-                    } catch (Exception e) {
-                        System.err.println("Erro ao parsear JSON: " + e.getMessage());
-                        return null;
-                    }
-                })
-                .filter((routeId, capacity) -> capacity != null) // Filtrar mensagens inválidas
-                .groupByKey()
+                .groupBy(
+                        (key, route) -> route.getRouteId(),
+                        Grouped.with(Serdes.String(), Serdes.serdeFrom(routeSerializer, routeDeserializer))
+                )
                 .aggregate(
                         () -> 0,
-                        (routeId, newCapacity, currentCapacity) -> newCapacity,
+                        (routeId, route, currentCapacity) -> currentCapacity + route.getCapacity(),
                         Materialized.with(Serdes.String(), Serdes.Integer())
                 );
 
-        //Contar passageiros
-        KStream<String, String> tripsStream = builder.stream(INPUT_TRIPS_TOPIC);
+        // Stream de viagens com serializadores/desserializadores personalizados
+        KStream<String, Trip> tripsStream = builder.stream(
+                INPUT_TRIPS_TOPIC,
+                Consumed.with(Serdes.String(), Serdes.serdeFrom(tripSerializer, tripDeserializer))
+        );
 
         KTable<String, Long> passengersPerRoute = tripsStream
-                .mapValues(value -> {
-                    try {
-                        JSONObject json = new JSONObject(value);
-                        JSONObject payload = json.getJSONObject("payload");
-                        return payload.getString("routeId");
-                    } catch (Exception e) {
-                        System.err.println("Erro ao parsear JSON: " + e.getMessage());
-                        return null;
-                    }
-                })
-                .filter((key, routeId) -> routeId != null) // Filtrar mensagens inválidas
-                .groupBy((key, routeId) -> routeId)
+                .groupBy(
+                        (key, trip) -> trip.getRouteId(),
+                        Grouped.with(Serdes.String(), Serdes.serdeFrom(tripSerializer, tripDeserializer))
+                )
                 .count(Materialized.with(Serdes.String(), Serdes.Long()));
 
-        //Capacidade total
+        // Calcular capacidade total
         KTable<String, Integer> totalCapacity = routeCapacities
-            .groupBy(
-                (routeId, capacity) -> KeyValue.pair("total", capacity), //Mapeia todas as rotas para a chave "total"
-                Grouped.with(Serdes.String(), Serdes.Integer()) 
-            )
-            .reduce(
-                Integer::sum,
-                Integer::sum,
+        .groupBy(
+                (routeId, capacity) -> KeyValue.pair("total", capacity),
+                Grouped.with(Serdes.String(), Serdes.Integer())
+        )
+        .aggregate(
+                () -> 0, // Inicializa com 0
+                (key, newValue, aggregate) -> aggregate + newValue, // Soma os valores
+                (key, oldValue, aggregate) -> aggregate - oldValue, // Rebalanceamento (opcional)
                 Materialized.with(Serdes.String(), Serdes.Integer())
-            );
-        
-        //Total de passageiros
-        KTable<String, Long> totalPassengers = passengersPerRoute
-            .groupBy(
-                (routeId, passengers) -> KeyValue.pair("total", passengers), //Mapeia todas as rotas para a chave "total"
-                Grouped.with(Serdes.String(), Serdes.Long())               
-            )
-            .reduce(
-                Long::sum,
-                Long::sum,
-                Materialized.with(Serdes.String(), Serdes.Long())
-            );
+        );
 
-        //Calcular a percentagem de ocupacao
+        // Calcular total de passageiros
+        KTable<String, Long> totalPassengers = passengersPerRoute
+        .groupBy(
+                (routeId, passengers) -> KeyValue.pair("total", passengers),
+                Grouped.with(Serdes.String(), Serdes.Long())
+        )
+        .aggregate(
+                () -> 0L, // Inicializa com 0L
+                (key, newValue, aggregate) -> aggregate + newValue, // Soma os valores
+                (key, oldValue, aggregate) -> aggregate - oldValue, // Rebalanceamento (opcional)
+                Materialized.with(Serdes.String(), Serdes.Long())
+        );
+
+        // Calcular a porcentagem total de ocupação
         KTable<String, Double> totalOccupancyPercentage = totalCapacity
                 .join(
                         totalPassengers,
                         (capacity, passengers) -> {
-                            if (capacity == 0 || passengers == null) return 0.0; //Evitar divisão por zero
+                            if (capacity == 0) return 0.0;
                             return (passengers.doubleValue() / capacity) * 100;
                         },
                         Materialized.with(Serdes.String(), Serdes.Double())
                 );
 
-        //Escrever o resultado no topico
+        // Escrever o resultado no tópico de saída
         totalOccupancyPercentage.toStream()
-                .filter((key, value) -> key.equals("total")) //Apenas a chave "total"
+                .filter((key, value) -> key.equals("total")) // Apenas a chave "total"
                 .mapValues(percentage -> {
                     String schema = """
                     {
@@ -123,11 +125,9 @@ public class TotalOccupancyPercentage {
                 })
                 .to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String()));
 
-
         KafkaStreams streams = new KafkaStreams(builder.build(), props);
         streams.start();
 
-        
         Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
     }
 }
