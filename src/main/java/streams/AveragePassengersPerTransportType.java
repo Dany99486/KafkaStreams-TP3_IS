@@ -1,14 +1,18 @@
 package streams;
 
+import classes.Trip;
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.StreamsConfig;
+import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Produced;
 import org.json.JSONObject;
 
+import utils.JsonDeserializer;
+import utils.JsonSerializer;
 import utils.KafkaTopicUtils;
 
 import java.util.Properties;
@@ -31,34 +35,28 @@ public class AveragePassengersPerTransportType {
 
         StreamsBuilder builder = new StreamsBuilder();
 
-        // Read input stream
-        KStream<String, String> tripsStream = builder.stream(INPUT_TRIPS_TOPIC);
+        // Usa JsonSerializer e JsonDeserializer para Trip
+        JsonDeserializer<Trip> tripDeserializer = new JsonDeserializer<>(Trip.class);
+        JsonSerializer<Trip> tripSerializer = new JsonSerializer<>();
 
-        // Extract transport type and map it to a passenger count
-        KStream<String, String> transportTypeStream = tripsStream
-                .mapValues((String value) -> {
-                    try {
-                        JSONObject json = new JSONObject(value);
-                        JSONObject payload = json.getJSONObject("payload");
-                        return payload.getString("transportType");
-                    } catch (Exception e) {
-                        System.err.println("Erro ao parsear JSON: " + e.getMessage());
-                        return null;
-                    }
-                })
-                .filter((key, transportType) -> transportType != null);
+
+        // Read input stream
+        KStream<String, Trip> tripsStream = builder.stream(
+                INPUT_TRIPS_TOPIC,
+                Consumed.with(Serdes.String(), Serdes.serdeFrom(tripSerializer, tripDeserializer))
+        );
 
         // Contar o número total de passageiros por tipo de transporte
-        KTable<String, Long> totalPassengersByTransportType = transportTypeStream
+        KTable<String, Long> totalPassengersByTransportType = tripsStream
                 .groupBy((key, transportType) -> "key")  // Agrupa todas as mensagens em uma única chave
                 .count();
 
 
-        KTable<String, Long> distinctTransportTypeCount = transportTypeStream
-                .groupBy((key, transportType) -> transportType)  // Agrupa por tipo de transporte
+        KTable<String, Long> distinctTransportTypeCount = tripsStream
+                .groupBy((key, transportType) -> transportType.getTransportType())  // Agrupa por tipo de transporte
                 .aggregate(
                         () -> "",  // Função inicial: inicia com 0 para cada tipo
-                        (key, transportType, aggregate) -> transportType  // Função de agregação: marca presença como 1 para cada tipo distinto
+                        (key, transportType, aggregate) -> transportType.getTransportType()  // Função de agregação: marca presença como 1 para cada tipo distinto
                 )
                 .toStream()  // Converte a KTable em KStream
                 .groupBy((key, value) -> "key")  // Agrupa todas as mensagens em uma única chave

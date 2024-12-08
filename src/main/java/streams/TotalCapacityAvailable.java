@@ -26,7 +26,7 @@ public class TotalCapacityAvailable {
     public static void main(String[] args) {
 
         Properties props = new Properties();
-        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "total-capacity-available-app3");
+        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "total-capacity-available-app");
         props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "broker1:9092,broker2:9093,broker3:9094");
         props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
         props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
