@@ -50,7 +50,7 @@ public class PassengersPerRoute {
 
         // Lógica de processamento
         KTable<String, Long> passengersPerRoute = tripsStream
-                .filter((key, trip) -> trip != null && trip.getRouteId() != null) // Filtra mensagens inválidas
+                .filter((key, trip) -> trip != null && trip.getRouteId() != null)
                 .groupBy((key, trip) -> trip.getRouteId())
                 .count();
 

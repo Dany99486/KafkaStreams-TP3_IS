@@ -30,7 +30,7 @@ public class TripsProducer {
             Timer timer = new Timer();
 
             timer.scheduleAtFixedRate(new TimerTask() {
-                int tripCounter = 10;
+                int tripCounter = 1;
 
                 @Override
                 public void run() {
