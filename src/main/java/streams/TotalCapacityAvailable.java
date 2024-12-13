@@ -1,9 +1,7 @@
 package streams;
 
 import org.apache.kafka.common.serialization.Serdes;
-import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
-import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.Grouped;
 import org.apache.kafka.streams.kstream.KStream;
@@ -16,25 +14,14 @@ import utils.JsonSerializer;
 import utils.KafkaTopicUtils;
 import classes.Route;
 
-import java.util.Properties;
-
 public class TotalCapacityAvailable {
 
     private static final String OUTPUT_TOPIC = "projeto3_total_capacity_available";
     private static final String INPUT_ROUTES_TOPIC = "Routes_topic";
 
-    public static void main(String[] args) {
+    public static void addTotalCapacityAvailableStream(StreamsBuilder builder, KafkaTopicUtils topicUtils) {
 
-        Properties props = new Properties();
-        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "total-capacity-available-app");
-        props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "broker1:9092,broker2:9093,broker3:9094");
-        props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-        props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-
-        KafkaTopicUtils topicUtils = new KafkaTopicUtils(props);
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
-
-        StreamsBuilder builder = new StreamsBuilder();
 
         // Usa JsonSerializer e JsonDeserializer para Route
         JsonDeserializer<Route> routeDeserializer = new JsonDeserializer<>(Route.class);
@@ -89,12 +76,5 @@ public class TotalCapacityAvailable {
                 })
                 .to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String()));
 
-        KafkaStreams streams = new KafkaStreams(builder.build(), props);
-        streams.start();
-
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            streams.close();
-            topicUtils.close();
-        }));
     }
 }

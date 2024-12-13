@@ -3,16 +3,12 @@ package streams;
 import classes.Route;
 import classes.Trip;
 import org.apache.kafka.common.serialization.Serdes;
-import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
-import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.*;
 import utils.JsonDeserializer;
 import utils.JsonSerializer;
 import utils.KafkaTopicUtils;
-
-import java.util.Properties;
 
 public class RouteWithLeastOccupancy {
 
@@ -20,18 +16,10 @@ public class RouteWithLeastOccupancy {
     private static final String INPUT_ROUTES_TOPIC = "Routes_topic";
     private static final String OUTPUT_TOPIC = "projeto3_route_least_occupancy";
 
-    public static void main(String[] args) {
+    public static void addRouteWithLeastOccupancyStream(StreamsBuilder builder, KafkaTopicUtils topicUtils) {
         // Configuração do Kafka Streams
-        Properties props = new Properties();
-        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "route_least_occupancy-app");
-        props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "broker1:9092,broker2:9093,broker3:9094");
-        props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-        props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
 
-        KafkaTopicUtils topicUtils = new KafkaTopicUtils(props);
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
-
-        StreamsBuilder builder = new StreamsBuilder();
 
         KStream<String, Route> routesStream = builder.stream(
                 INPUT_ROUTES_TOPIC,
@@ -120,10 +108,5 @@ public class RouteWithLeastOccupancy {
                 })
                 .to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String())); // Publica o resultado formatado no tópico de saída
 
-        // Inicia o Kafka Streams
-        KafkaStreams streams = new KafkaStreams(builder.build(), props);
-        streams.start();
-
-        Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
     }
 }

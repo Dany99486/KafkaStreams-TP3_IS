@@ -19,18 +19,9 @@ public class TransportTypeMaxPassengersWindow {
     private static final String INPUT_TRIPS_TOPIC = "Trips_topic";
     private static final String OUTPUT_TOPIC = "projeto3_max_transport_type_window";
 
-    public static void main(String[] args) {
-        // Configuração do Kafka Streams
-        Properties props = new Properties();
-        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "max-transport-type-windowed-app");
-        props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "broker1:9092,broker2:9093,broker3:9094");
-        props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-        props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+    public static void addTransportTypeMaxPassengersWindowStream(StreamsBuilder builder, KafkaTopicUtils topicUtils) {
 
-        KafkaTopicUtils topicUtils = new KafkaTopicUtils(props);
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
-
-        StreamsBuilder builder = new StreamsBuilder();
 
         // Consome o tópico de trips
         KStream<String, Trip> tripsStream = builder.stream(
@@ -97,10 +88,5 @@ public class TransportTypeMaxPassengersWindow {
         // Publicar o resultado no tópico de saída
         maxTransportTypeStream.to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String()));
 
-        // Inicia o Kafka Streams
-        KafkaStreams streams = new KafkaStreams(builder.build(), props);
-        streams.start();
-
-        Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
     }
 }

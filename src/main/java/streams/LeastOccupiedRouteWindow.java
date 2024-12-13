@@ -18,18 +18,9 @@ public class LeastOccupiedRouteWindow {
     private static final String INPUT_TRIPS_TOPIC = "Trips_topic";
     private static final String OUTPUT_TOPIC = "projeto3_least_occupancy_per_route";
 
-    public static void main(String[] args) {
-        // Configurações do Kafka Streams
-        Properties props = new Properties();
-        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "least-occupancy-windowed-app");
-        props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "broker1:9092,broker2:9093,broker3:9094");
-        props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-        props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+    public static void addLeastOccupiedRouteWindowStream(StreamsBuilder builder, KafkaTopicUtils topicUtils) {
 
-        KafkaTopicUtils topicUtils = new KafkaTopicUtils(props);
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
-
-        StreamsBuilder builder = new StreamsBuilder();
 
         // Serdes para Route e Trip
         JsonSerializer<Route> routeSerializer = new JsonSerializer<>();
@@ -178,14 +169,7 @@ public class LeastOccupiedRouteWindow {
                     return "{\"schema\": " + schema + ", \"payload\": " + payload + "}";
                 })
                 .to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String()));
-
-        KafkaStreams streams = new KafkaStreams(builder.build(), props);
-        streams.start();
-
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            streams.close();
-            topicUtils.close();
-        }));
+        
     }
 
     // Funções auxiliares para extrair valores de strings

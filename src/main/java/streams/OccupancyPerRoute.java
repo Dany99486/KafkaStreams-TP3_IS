@@ -1,9 +1,7 @@
 package streams;
 
 import org.apache.kafka.common.serialization.Serdes;
-import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
-import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KTable;
@@ -15,26 +13,15 @@ import utils.KafkaTopicUtils;
 import classes.Route;
 import classes.Trip;
 
-import java.util.Properties;
-
 public class OccupancyPerRoute {
 
     private static final String OUTPUT_TOPIC = "projeto3_occupancy_per_route";
     private static final String INPUT_ROUTES_TOPIC = "Routes_topic";
     private static final String INPUT_TRIPS_TOPIC = "Trips_topic";
 
-    public static void main(String[] args) {
-        // Configuração para Kafka Streams
-        Properties props = new Properties();
-        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "occupancy-per-route-app");
-        props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "broker1:9092,broker2:9093,broker3:9094");
-        props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-        props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+    public static void addOccupancyPerRouteStream(StreamsBuilder builder, KafkaTopicUtils topicUtils) {
 
-        KafkaTopicUtils topicUtils = new KafkaTopicUtils(props);
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
-
-        StreamsBuilder builder = new StreamsBuilder();
 
         // Usa JsonSerializer e JsonDeserializer diretamente
         JsonSerializer<Route> routeSerializer = new JsonSerializer<>();
@@ -100,12 +87,5 @@ public class OccupancyPerRoute {
                 })
                 .to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String()));
 
-        KafkaStreams streams = new KafkaStreams(builder.build(), props);
-        streams.start();
-
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            streams.close();
-            topicUtils.close();
-        }));
     }
 }

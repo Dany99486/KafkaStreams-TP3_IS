@@ -2,38 +2,24 @@ package streams;
 
 import classes.Trip;
 import org.apache.kafka.common.serialization.Serdes;
-import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsBuilder;
-import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KTable;
 import org.apache.kafka.streams.kstream.Produced;
-import org.json.JSONObject;
 
 import utils.JsonDeserializer;
 import utils.JsonSerializer;
 import utils.KafkaTopicUtils;
-
-import java.util.Properties;
 
 public class AveragePassengersPerTransportType {
 
     private static final String OUTPUT_TOPIC = "projeto3_average_passengers_per_transport_types";
     private static final String INPUT_TRIPS_TOPIC = "Trips_topic";
 
-    public static void main(String[] args) {
-        // Configuração para Kafka Streams
-        Properties props = new Properties();
-        props.put(StreamsConfig.APPLICATION_ID_CONFIG, "average-passengers-across-transport-types-app");
-        props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "broker1:9092,broker2:9093,broker3:9094");
-        props.put(StreamsConfig.DEFAULT_KEY_SERDE_CLASS_CONFIG, Serdes.String().getClass());
-        props.put(StreamsConfig.DEFAULT_VALUE_SERDE_CLASS_CONFIG, Serdes.String().getClass());
+    public static void addAveragePassengersPerTransportTypeStream(StreamsBuilder builder, KafkaTopicUtils topicUtils) {
 
-        KafkaTopicUtils topicUtils = new KafkaTopicUtils(props);
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
-
-        StreamsBuilder builder = new StreamsBuilder();
 
         // Usa JsonSerializer e JsonDeserializer para Trip
         JsonDeserializer<Trip> tripDeserializer = new JsonDeserializer<>(Trip.class);
@@ -88,14 +74,5 @@ public class AveragePassengersPerTransportType {
                 })
                 .to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String()));
 
-        // Start the Kafka Streams application
-        KafkaStreams streams = new KafkaStreams(builder.build(), props);
-        streams.start();
-
-        // Add shutdown hook
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            streams.close();
-            topicUtils.close();
-        }));
     }
 }
