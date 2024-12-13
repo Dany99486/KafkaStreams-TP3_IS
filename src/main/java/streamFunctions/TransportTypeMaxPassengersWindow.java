@@ -1,18 +1,15 @@
-package streams;
+package streamFunctions;
 
 import classes.Trip;
 import org.apache.kafka.common.serialization.Serdes;
-import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.KeyValue;
 import org.apache.kafka.streams.StreamsBuilder;
-import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.*;
 import utils.JsonDeserializer;
 import utils.JsonSerializer;
 import utils.KafkaTopicUtils;
 
 import java.time.Duration;
-import java.util.Properties;
 
 public class TransportTypeMaxPassengersWindow {
 

@@ -1,4 +1,4 @@
-package streams;
+package streamFunctions;
 
 import classes.Trip;
 import org.apache.kafka.common.serialization.Serdes;

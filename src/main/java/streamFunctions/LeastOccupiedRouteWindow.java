@@ -1,4 +1,4 @@
-package streams;
+package streamFunctions;
 
 import classes.Route;
 import classes.Trip;
@@ -10,7 +10,6 @@ import utils.JsonSerializer;
 import utils.KafkaTopicUtils;
 
 import java.time.Duration;
-import java.util.Properties;
 
 public class LeastOccupiedRouteWindow {
 

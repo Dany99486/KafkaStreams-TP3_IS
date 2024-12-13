@@ -1,4 +1,4 @@
-package streams;
+package streamFunctions;
 
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.StreamsBuilder;

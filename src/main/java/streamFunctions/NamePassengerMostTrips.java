@@ -1,4 +1,4 @@
-package streams;
+package streamFunctions;
 
 import classes.Trip;
 import org.apache.kafka.common.serialization.Serdes;
@@ -9,12 +9,12 @@ import utils.JsonDeserializer;
 import utils.JsonSerializer;
 import utils.KafkaTopicUtils;
 
-public class TransportTypeMaxPassengers {
+public class NamePassengerMostTrips {
 
     private static final String INPUT_TRIPS_TOPIC = "Trips_topic";
-    private static final String OUTPUT_TOPIC = "projeto3_max_transport_type";
+    private static final String OUTPUT_TOPIC = "projeto3_most_trips_passenger";
 
-    public static void addTransportTypeMaxPassengersStream(StreamsBuilder builder, KafkaTopicUtils topicUtils) {
+    public static void addNamePassengerMostTripsStreams(StreamsBuilder builder, KafkaTopicUtils topicUtils) {
 
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
 
@@ -24,56 +24,53 @@ public class TransportTypeMaxPassengers {
                 Consumed.with(Serdes.String(), Serdes.serdeFrom(new JsonSerializer<>(), new JsonDeserializer<>(Trip.class)))
         );
 
-        // Contagem de viagens por tipo de transporte (número de passageiros é igual ao número de viagens)
-        KTable<String, Long> passengersByTransportType = tripsStream
-                .filter((key, trip) -> trip != null && trip.getTransportType() != null) // Filtra valores nulos
-                .groupBy((key, trip) -> trip.getTransportType()) // Agrupa por tipo de transporte
-                .count(); // Conta o número de viagens (passageiros)
+        // Count the number of trips per passenger
+        KTable<String, Long> passengerTripCounts = tripsStream
+                .filter((key, trip) -> trip != null && trip.getPassengerName() != null) // Filter out null values
+                .groupBy((key, trip) -> trip.getPassengerName()) // Group by passenger name
+                .count();
 
-        // Encontrar o tipo de transporte com o maior número de passageiros
-        KStream<String, String> maxTransportTypeStream = passengersByTransportType
+        // Find the passenger with the maximum trip count
+        KStream<String, String> maxPassenger = passengerTripCounts
                 .toStream()
-                .map((transportType, passengerCount) -> KeyValue.pair("maxPassengersTransportType",
-                        transportType + ":" + passengerCount)) // Adiciona tipo e contagem como valor temporário
-                .groupByKey() // Agrupa pela chave fixa "maxTransportType"
+                .map((passengerName, tripCount) -> KeyValue.pair("maxTripsPassenger", passengerName + ":" + tripCount))
+                .groupByKey()
                 .aggregate(
-                        () -> "", // Estado inicial
+                        () -> "", // Initial state
                         (key, newValue, currentMax) -> {
-                            // Divide o estado atual e o novo valor para comparar
                             String[] currentParts = currentMax.split(":");
                             String[] newParts = newValue.split(":");
 
                             long currentCount = currentParts.length > 1 ? Long.parseLong(currentParts[1]) : 0;
                             long newCount = newParts.length > 1 ? Long.parseLong(newParts[1]) : 0;
 
-                            // Retorna o maior entre o atual e o novo
+                            // Return the passenger with the higher trip count
                             return newCount > currentCount ? newValue : currentMax;
                         },
                         Materialized.with(Serdes.String(), Serdes.String())
                 )
                 .toStream()
-                .filter((key, value) -> !value.isEmpty()); // Filtra valores inválidos
-
+                .filter((key, value) -> !value.isEmpty());
         // Escrever resultado no tópico de saída
-        maxTransportTypeStream
+        maxPassenger
                 .mapValues(value -> {
                     String[] parts = value.split(":");
-                    String transportType = parts[0];
+                    String passengerName = parts[0];
 
                     // Definir o esquema do JSON
                     String schema = """
                         {
                             "type": "struct",
                             "fields": [
-                                {"field": "transportType", "type": "string"}
+                                {"field": "passengerName", "type": "string"}
                             ]
                         }
                     """;
 
                     // Definir o payload do JSON
                     String payload = String.format(
-                            "{\"transportType\": \"%s\"}",
-                            transportType
+                            "{\"passengerName\": \"%s\"}",
+                            passengerName
                     );
 
                     // Retorna o JSON completo com schema e payload
