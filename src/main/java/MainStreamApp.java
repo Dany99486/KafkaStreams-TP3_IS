@@ -29,8 +29,8 @@ public class MainStreamApp {
         TotalOccupancyPercentage.addTotalOccupancyPercentageStream(builder, topicUtils);
         TotalPassengers.addTotalPassengersStream(builder, topicUtils);
         TransportTypeMaxPassengers.addTransportTypeMaxPassengersStream(builder, topicUtils);
-        TransportTypeMaxPassengersWindow.addTransportTypeMaxPassengersWindowStream(builder, topicUtils);
-        LeastOccupiedRouteWindow.addLeastOccupiedRouteWindowStream(builder, topicUtils);
+        TransportTypeMaxPassengersWindow.addTransportTypeMaxPassengersWindowStream(builder, topicUtils); //Ponto 13
+        LeastOccupiedTransportTypeWindow.addLeastOccupiedTransportTypeWindowStream(builder, topicUtils); //Ponto 14
 
 
         KafkaStreams streams = new KafkaStreams(builder.build(), props);
