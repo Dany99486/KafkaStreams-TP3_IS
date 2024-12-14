@@ -1,4 +1,4 @@
-package streams;
+package streamFunctions;
 
 import classes.Route;
 import classes.Trip;

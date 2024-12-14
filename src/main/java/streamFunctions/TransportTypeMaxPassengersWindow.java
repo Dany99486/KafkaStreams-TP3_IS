@@ -1,8 +1,13 @@
-package streams;
+package streamFunctions;
 
 import classes.Trip;
 import org.apache.kafka.common.serialization.Serdes;
+<<<<<<< HEAD:src/main/java/streams/TransportTypeMaxPassengersWindow.java
 import org.apache.kafka.streams.*;
+=======
+import org.apache.kafka.streams.KeyValue;
+import org.apache.kafka.streams.StreamsBuilder;
+>>>>>>> cafa3f39c19609e0fbc634002f2784cebb261563:src/main/java/streamFunctions/TransportTypeMaxPassengersWindow.java
 import org.apache.kafka.streams.kstream.*;
 import utils.JsonDeserializer;
 import utils.JsonSerializer;
@@ -16,12 +21,19 @@ public class TransportTypeMaxPassengersWindow {
     private static final String OUTPUT_TOPIC = "projeto3_max_transport_type_window";
 
     public static void addTransportTypeMaxPassengersWindowStream(StreamsBuilder builder, KafkaTopicUtils topicUtils) {
+<<<<<<< HEAD:src/main/java/streams/TransportTypeMaxPassengersWindow.java
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
 
         //Serde Trip
         var tripSerde = Serdes.serdeFrom(new JsonSerializer<>(), new JsonDeserializer<>(Trip.class));
 
         //Consome trips
+=======
+
+        topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
+
+        // Consome o tópico de trips
+>>>>>>> cafa3f39c19609e0fbc634002f2784cebb261563:src/main/java/streamFunctions/TransportTypeMaxPassengersWindow.java
         KStream<String, Trip> tripsStream = builder.stream(
                 INPUT_TRIPS_TOPIC,
                 Consumed.with(Serdes.String(), tripSerde)
@@ -88,5 +100,9 @@ public class TransportTypeMaxPassengersWindow {
 
         // Publicar o resultado no tópico de saída
         maxTransportTypeStream.to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String()));
+<<<<<<< HEAD:src/main/java/streams/TransportTypeMaxPassengersWindow.java
+=======
+
+>>>>>>> cafa3f39c19609e0fbc634002f2784cebb261563:src/main/java/streamFunctions/TransportTypeMaxPassengersWindow.java
     }
 }
