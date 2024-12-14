@@ -2,12 +2,7 @@ package streamFunctions;
 
 import classes.Trip;
 import org.apache.kafka.common.serialization.Serdes;
-<<<<<<< HEAD:src/main/java/streams/TransportTypeMaxPassengersWindow.java
 import org.apache.kafka.streams.*;
-=======
-import org.apache.kafka.streams.KeyValue;
-import org.apache.kafka.streams.StreamsBuilder;
->>>>>>> cafa3f39c19609e0fbc634002f2784cebb261563:src/main/java/streamFunctions/TransportTypeMaxPassengersWindow.java
 import org.apache.kafka.streams.kstream.*;
 import utils.JsonDeserializer;
 import utils.JsonSerializer;
@@ -20,26 +15,31 @@ public class TransportTypeMaxPassengersWindow {
     private static final String INPUT_TRIPS_TOPIC = "Trips_topic";
     private static final String OUTPUT_TOPIC = "projeto3_max_transport_type_window";
 
+    /**
+     * Este método adiciona a lógica de processamento ao StreamsBuilder fornecido.
+     * A ideia é que você possa chamar este método a partir de outro arquivo,
+     * passando o builder (compartilhado entre várias topologias) e um objeto KafkaTopicUtils
+     * para garantir que o tópico de saída existe, etc.
+     *
+     * Após chamar este método, a topologia estará configurada. Você poderá então
+     * criar e iniciar a sua instância de KafkaStreams externamente.
+     *
+     * @param builder    StreamsBuilder ao qual a topologia será adicionada
+     * @param topicUtils Instância de KafkaTopicUtils para gerenciamento de tópicos
+     */
     public static void addTransportTypeMaxPassengersWindowStream(StreamsBuilder builder, KafkaTopicUtils topicUtils) {
-<<<<<<< HEAD:src/main/java/streams/TransportTypeMaxPassengersWindow.java
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
 
-        //Serde Trip
+        // Serde para Trip
         var tripSerde = Serdes.serdeFrom(new JsonSerializer<>(), new JsonDeserializer<>(Trip.class));
 
-        //Consome trips
-=======
-
-        topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
-
         // Consome o tópico de trips
->>>>>>> cafa3f39c19609e0fbc634002f2784cebb261563:src/main/java/streamFunctions/TransportTypeMaxPassengersWindow.java
         KStream<String, Trip> tripsStream = builder.stream(
                 INPUT_TRIPS_TOPIC,
                 Consumed.with(Serdes.String(), tripSerde)
         );
 
-        //Contagem de viagens por tipo de transporte em uma janela de 1 minuto
+        // Contagem de viagens por tipo de transporte em uma janela de 1 minuto
         KTable<Windowed<String>, Long> passengersByTransportType = tripsStream
                 .filter((key, trip) -> trip != null && trip.getTransportType() != null) // Filtra valores nulos
                 .groupBy((key, trip) -> trip.getTransportType(),
@@ -47,8 +47,8 @@ public class TransportTypeMaxPassengersWindow {
                 .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofMinutes(1)))
                 .count(Materialized.with(Serdes.String(), Serdes.Long()));
 
-        //Aqui em stream e mapeamos todos os resultados para uma mesma chave fixa ("maxPassengers")
-        //Todos os valores armazenados em apenas um registro, que será atualizado conforme chegam novos valores.
+        // Aqui convertemos em stream e mapeamos todos os resultados para uma mesma chave fixa ("maxPassengers")
+        // Assim, todos os valores ficarão armazenados em apenas um registro agregado, que será atualizado conforme chegam novos valores.
         KStream<String, String> maxTransportTypeStream = passengersByTransportType
                 .toStream()
                 .mapValues((windowedKey, passengerCount) -> {
@@ -100,9 +100,5 @@ public class TransportTypeMaxPassengersWindow {
 
         // Publicar o resultado no tópico de saída
         maxTransportTypeStream.to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String()));
-<<<<<<< HEAD:src/main/java/streams/TransportTypeMaxPassengersWindow.java
-=======
-
->>>>>>> cafa3f39c19609e0fbc634002f2784cebb261563:src/main/java/streamFunctions/TransportTypeMaxPassengersWindow.java
     }
 }
