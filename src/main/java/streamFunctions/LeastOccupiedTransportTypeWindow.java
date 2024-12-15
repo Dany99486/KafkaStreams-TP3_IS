@@ -48,8 +48,9 @@ public class LeastOccupiedTransportTypeWindow {
         // Agrupa e conta o número de passageiros por tipo de transporte
         // Junta tripsStream com routesStream para determinar o tipo de transporte de cada viagem
         KStream<String, String> tripsWithTransportType = tripsStream
+                .selectKey((key, trip) -> trip.getRouteId())
                 .join(
-                        routesStream.selectKey((key, route) -> route.getRouteId()), // Alinha a chave com routeId
+                        routesStream, // Alinha a chave com routeId
                         (trip, route) -> {
                         if (route == null || route.getTransportType() == null) return null;
                         return route.getTransportType(); // Retorna o tipo de transporte
@@ -61,7 +62,7 @@ public class LeastOccupiedTransportTypeWindow {
         // Agrupa as viagens por tipo de transporte para contar passageiros
         KTable<String, Long> totalPassengersByTransportType = tripsWithTransportType
                 .groupBy((routeId, transportType) -> transportType, Grouped.with(Serdes.String(), Serdes.String()))
-                .count(Materialized.with(Serdes.String(), Serdes.Long()));
+                .count(Materialized.with(Serdes.String(), Serdes.Long())); //passageiros por tipo de transporte
 
 
         // Calcula a ocupação por tipo de transporte
@@ -77,19 +78,20 @@ public class LeastOccupiedTransportTypeWindow {
         // Identifica o tipo de transporte com a menor ocupação
         KTable<String, String> leastOccupiedTransportType = occupancyByTransportType
                 .toStream()
-                .groupBy((transportType, occupancy) -> transportType, // Agrupa pelo tipo de transporte
-                        Grouped.with(Serdes.String(), Serdes.Double())) // Configura os Serdes
+                .map((transportType, occupancy) -> KeyValue.pair("leastOccupiedTransportType",
+                        transportType + ":" + occupancy)) // Adiciona tipo e contagem como valor temporário
+                .groupByKey() // Agrupa pela chave fixa "maxTransportType"
                 .aggregate(
-                        () -> null, // Estado inicial vazio
+                        () -> "", // Estado inicial vazio
                         (key, newValue, currentMin) -> {
-                        if (currentMin == null) return String.format("%s:%.2f", key, newValue);
+                            String[] currentParts = currentMin.split(":");
+                            String[] newParts = newValue.split(":");
 
-                        double newOccupancy = newValue;
-                        double currentOccupancy = Double.parseDouble(currentMin.split(":")[1]);
+                            double currentCount = currentParts.length > 1 ? Double.parseDouble(currentParts[1]) : Double.MAX_VALUE;
+                            double newCount = newParts.length > 1 ? Double.parseDouble(newParts[1]) : Double.MAX_VALUE;
 
-                        return newOccupancy < currentOccupancy
-                                ? String.format("%s:%.2f", key, newValue)
-                                : currentMin;
+                            // Retorna o maior entre o atual e o novo
+                            return newCount < currentCount ? newValue : currentMin;
                         },
                         Materialized.with(Serdes.String(), Serdes.String())
                 );

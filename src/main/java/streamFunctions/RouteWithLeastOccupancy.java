@@ -65,16 +65,16 @@ public class RouteWithLeastOccupancy {
                 .groupByKey() // Agrupa pela chave fixa "leastOccupancyRoute"
                 .aggregate(
                         () -> "", // Estado inicial
-                        (key, newValue, currentMax) -> {
+                        (key, newValue, currentMin) -> {
                             // Divide o estado atual e o novo valor para comparar
-                            String[] currentParts = currentMax.split(":");
+                            String[] currentParts = currentMin.split(":");
                             String[] newParts = newValue.split(":");
 
-                            double currentCount = currentParts.length > 1 ? Double.parseDouble(currentParts[1]) : 0;
-                            double newCount = newParts.length > 1 ? Double.parseDouble(newParts[1]) : 0;
+                            double currentCount = currentParts.length > 1 ? Double.parseDouble(currentParts[1]) : Double.MAX_VALUE;
+                            double newCount = newParts.length > 1 ? Double.parseDouble(newParts[1]) : Double.MAX_VALUE;
 
                             // Retorna o maior entre o atual e o novo
-                            return newCount > currentCount ? newValue : currentMax;
+                            return newCount < currentCount ? newValue : currentMin;
                         },
                         Materialized.with(Serdes.String(), Serdes.String())
                 )
