@@ -12,7 +12,7 @@
 kafka-console-producer.sh --bootstrap-server broker1:9092 --topic test_topic
 
 # Runs one consumer connected to the bootstrap-server broker1:9092
-kafka-console-consumer.sh --bootstrap-server broker1:9092 --topic projeto3_least_occupied_transport_type_window
+kafka-console-consumer.sh --bootstrap-server broker1:9092 --topic projeto3_route_least_occupancy
 
 # Runs one consumer that reads all historical data from the beginning
 kafka-console-consumer.sh --bootstrap-server broker1:9092 --topic test_topic --from-beginning

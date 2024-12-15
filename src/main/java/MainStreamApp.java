@@ -24,7 +24,7 @@ public class MainStreamApp {
         NamePassengerMostTrips.addNamePassengerMostTripsStreams(builder, topicUtils);
         OccupancyPerRoute.addOccupancyPerRouteStream(builder, topicUtils);
         PassengersPerRoute.addPassengersPerRouteStream(builder, topicUtils);
-        RouteWithLeastOccupancy.addRouteWithLeastOccupancyStream(builder, topicUtils);
+        RouteWithLeastOccupancyPerTransportType.addRouteWithLeastOccupancyPerTransportTypeStream(builder, topicUtils);
         TotalCapacityAvailable.addTotalCapacityAvailableStream(builder,topicUtils);
         TotalOccupancyPercentage.addTotalOccupancyPercentageStream(builder, topicUtils);
         TotalPassengers.addTotalPassengersStream(builder, topicUtils);

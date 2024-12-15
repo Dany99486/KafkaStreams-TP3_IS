@@ -6,7 +6,7 @@
     "connection.url": "jdbc:postgresql://database:5432/project3",
     "connection.user": "postgres",
     "connection.password": "My01pass",
-    "topics": "projeto3_passengers_per_route,projeto3_available_seats_per_route,projeto3_occupancy_per_route,projeto3_total_passengers,projeto3_total_capacity_available,projeto3_total_occupancy_percentage,projeto3_average_passengers_per_transport_types,projeto3_max_transport_type,projeto3_route_least_occupancy,projeto3_max_transport_type_window,projeto3_least_occupancy_per_route,projeto3_most_trips_passenger,projeto3_least_occupied_transport_type_window",
+    "topics": "projeto3_passengers_per_route,projeto3_available_seats_per_route,projeto3_occupancy_per_route,projeto3_total_passengers,projeto3_total_capacity_available,projeto3_total_occupancy_percentage,projeto3_average_passengers_per_transport_types,projeto3_max_transport_type,projeto3_route_least_occupancy_per_transport_type,projeto3_max_transport_type_window,projeto3_least_occupancy_per_route,projeto3_most_trips_passenger,projeto3_least_occupied_transport_type_window",
     "table.name.format": "${topic}",
     "auto.create": "true",
     "auto.evolve": "true",

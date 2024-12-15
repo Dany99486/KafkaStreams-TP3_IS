@@ -10,13 +10,13 @@ import utils.JsonDeserializer;
 import utils.JsonSerializer;
 import utils.KafkaTopicUtils;
 
-public class RouteWithLeastOccupancy {
+public class RouteWithLeastOccupancyPerTransportType {
 
     private static final String INPUT_TRIPS_TOPIC = "Trips_topic";
     private static final String INPUT_ROUTES_TOPIC = "Routes_topic";
-    private static final String OUTPUT_TOPIC = "projeto3_route_least_occupancy";
+    private static final String OUTPUT_TOPIC = "projeto3_route_least_occupancy_per_transport_type";
 
-    public static void addRouteWithLeastOccupancyStream(StreamsBuilder builder, KafkaTopicUtils topicUtils) {
+    public static void addRouteWithLeastOccupancyPerTransportTypeStream(StreamsBuilder builder, KafkaTopicUtils topicUtils) {
         // Configuração do Kafka Streams
 
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
@@ -55,14 +55,22 @@ public class RouteWithLeastOccupancy {
                     return (passengers.doubleValue() / capacity) * 100;
                 },
                 Materialized.with(Serdes.String(), Serdes.Double())
-        );
+        );//key, value : routeId, occupancyPercentage
+
+        // Soma passageiros por operador
+        KStream<String, String> occupancyWithTransportType = occupancyPercentagePerRoute
+                .join(
+                        routesStream.toTable(),
+                        (occupancyPercentage, route) -> route.getTransportType()+":"+occupancyPercentage
+                )  //key:routeID   value:"transportType:occupancypercentage"
+                .toStream();
+
 
         // Encontrar o route com a menor Occupancy
-        KStream<String, String> routeWithLeastOccupancy = occupancyPercentagePerRoute
-                .toStream()
-                .map((routeID, occupancy) -> KeyValue.pair("leastOccupancyRoute",
-                        routeID + ":" + occupancy)) // Adiciona tipo e contagem como valor temporário
-                .groupByKey() // Agrupa pela chave fixa "leastOccupancyRoute"
+        KStream<String, String> routeWithLeastOccupancy = occupancyWithTransportType
+                .map((routeID, kv) -> KeyValue.pair(kv.split(":")[0],
+                        routeID + ":" + kv.split(":")[1]))
+                .groupByKey() // Agrupa pelo transportType
                 .aggregate(
                         () -> "", // Estado inicial
                         (key, newValue, currentMin) -> {
@@ -73,7 +81,7 @@ public class RouteWithLeastOccupancy {
                             double currentCount = currentParts.length > 1 ? Double.parseDouble(currentParts[1]) : Double.MAX_VALUE;
                             double newCount = newParts.length > 1 ? Double.parseDouble(newParts[1]) : Double.MAX_VALUE;
 
-                            // Retorna o maior entre o atual e o novo
+                            // Retorna o menor entre o atual e o novo
                             return newCount < currentCount ? newValue : currentMin;
                         },
                         Materialized.with(Serdes.String(), Serdes.String())
@@ -86,21 +94,23 @@ public class RouteWithLeastOccupancy {
                 .mapValues(value -> {
                     String[] parts = value.split(":");
                     String routeId = parts[0];
+                    double occupancy = Double.parseDouble(parts[1]);
 
                     // Definir o esquema do JSON
                     String schema = """
                         {
                             "type": "struct",
                             "fields": [
-                                {"field": "routeId", "type": "string"}
+                                {"field": "routeId", "type": "string"},
+                                {"field": "occupancy", "type": "double"}
                             ]
                         }
                     """;
 
                     // Definir o payload do JSON
                     String payload = String.format(
-                            "{\"routeId\": \"%s\"}",
-                            routeId
+                            "{\"routeId\": \"%s\", \"occupancy\": %.2f}",
+                            routeId,occupancy
                     );
 
                     // Retorna o JSON completo com schema e payload
