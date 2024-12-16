@@ -31,113 +31,103 @@ public class MostOccupiedOperator {
         // Serdes para Route e Trip
         Serde<Route> routeSerde = Serdes.serdeFrom(routeSerializer, routeDeserializer);
         Serde<Trip> tripSerde = Serdes.serdeFrom(tripSerializer, tripDeserializer);
-        
+
+        // Serdes para tipos primitivos
+        Serde<Long> longSerde = Serdes.Long();
+        Serde<Integer> integerSerde = Serdes.Integer();
+        Serde<Double> doubleSerde = Serdes.Double();
+        Serde<String> stringSerde = Serdes.String();
+
         // Fluxo de dados para rotas
         KStream<String, Route> routesStream = builder.stream(
                 INPUT_ROUTES_TOPIC,
                 Consumed.with(Serdes.String(), routeSerde)
-        ).map((key, route) -> {
-            System.out.println("Routes Stream - Key: " + key + ", Route: " + route);
-            return new KeyValue<>(key, route);
-        });
+        )
+        .filter((key, route) -> route != null && route.getRouteId() != null && route.getOperator() != null)
+        .peek((key, route) -> System.out.println("Routes Stream - Key: " + key + ", Route: " + route));
 
         // Fluxo de dados para viagens
         KStream<String, Trip> tripsStream = builder.stream(
                 INPUT_TRIPS_TOPIC,
                 Consumed.with(Serdes.String(), tripSerde)
-        ).map((key, trip) -> {
-            System.out.println("Trips Stream - Key: " + key + ", Trip: " + trip);
-            return new KeyValue<>(key, trip);
-        });
+        )
+        .filter((key, trip) -> trip != null && trip.getRouteId() != null)
+        .peek((key, trip) -> System.out.println("Trips Stream - Key: " + key + ", Trip: " + trip));
 
         // Mapeia Route IDs para operadores
         KTable<String, String> routeToOperator = routesStream
-                .filter((key, route) -> route != null && route.getRouteId() != null && route.getOperator() != null)
                 .groupBy(
                         (key, route) -> route.getRouteId(),
-                        Grouped.with(Serdes.String(), routeSerde)
+                        Grouped.with(stringSerde, routeSerde)
                 )
                 .aggregate(
                         () -> null,
                         (routeId, route, currentValue) -> route.getOperator(),
-                        Materialized.with(Serdes.String(), Serdes.String())
+                        Materialized.with(stringSerde, Serdes.String())
                 )
                 .toStream()
-                .map((routeId, operator) -> {
-                    System.out.println("Route to Operator - RouteID: " + routeId + ", Operator: " + operator);
-                    return new KeyValue<>(routeId, operator);
-                })
-                .toTable(Materialized.with(Serdes.String(), Serdes.String()));
+                .peek((routeId, operator) -> System.out.println("Route to Operator - RouteID: " + routeId + ", Operator: " + operator))
+                .toTable(Materialized.with(stringSerde, Serdes.String()));
 
         // Conta passageiros por rota
         KTable<String, Long> passengersPerRoute = tripsStream
-                .filter((key, trip) -> trip != null && trip.getRouteId() != null)
                 .groupBy(
                         (key, trip) -> trip.getRouteId(),
-                        Grouped.with(Serdes.String(), tripSerde)
+                        Grouped.with(stringSerde, tripSerde)
                 )
-                .count(Materialized.with(Serdes.String(), Serdes.Long()))
+                .count(Materialized.with(stringSerde, longSerde))
                 .toStream()
-                .map((routeId, passengerCount) -> {
-                    System.out.println("Passengers per Route - RouteID: " + routeId + ", Count: " + passengerCount);
-                    return new KeyValue<>(routeId, passengerCount);
-                })
-                .toTable(Materialized.with(Serdes.String(), Serdes.Long()));
+                .peek((routeId, passengerCount) -> System.out.println("Passengers per Route - RouteID: " + routeId + ", Count: " + passengerCount))
+                .toTable(Materialized.with(stringSerde, longSerde));
 
-        // Convertendo passengersPerRoute para KStream para realizar a junção
-        KStream<String, Long> passengersStream = passengersPerRoute.toStream();
-
-        // Realizando a junção com routeToOperator para obter operador e contagem de passageiros
-        KStream<String, KeyValue<String, Long>> operatorPassengerStream = passengersStream.join(
-                routeToOperator,
-                (passengerCount, operator) -> new KeyValue<>(operator, passengerCount),
-                Joined.with(Serdes.String(), Serdes.Long(), Serdes.String())
-        );
+        // Junção de passengersPerRoute com routeToOperator para obter operador e contagem de passageiros
+        KStream<String, KeyValue<String, Long>> operatorPassengerStream = passengersPerRoute
+                .toStream()
+                .join(
+                        routeToOperator,
+                        (passengerCount, operator) -> new KeyValue<>(operator, passengerCount),
+                        Joined.with(stringSerde, longSerde, Serdes.String())
+                );
 
         // Mapeando para operador como chave e passengerCount como valor
-        KStream<String, Long> operatorPassengerMappedStream = operatorPassengerStream.map(
-                (routeId, operatorPassenger) -> {
+        KStream<String, Long> operatorPassengerMappedStream = operatorPassengerStream
+                .map((routeId, operatorPassenger) -> {
                     String operator = operatorPassenger.key;
                     Long passengerCount = operatorPassenger.value;
                     System.out.println("Joined Table - RouteID: " + routeId + ", Operator: " + operator + ", Passengers: " + passengerCount);
                     return new KeyValue<>(operator, passengerCount);
-                }
-        );
+                });
 
         // Agrupando por operador e somando os passageiros
         KTable<String, Long> operatorPassengers = operatorPassengerMappedStream
-                .groupBy(
-                        (operator, passengerCount) -> operator,
-                        Grouped.with(Serdes.String(), Serdes.Long())
-                )
-                .reduce(
-                        Long::sum,
-                        Materialized.with(Serdes.String(), Serdes.Long())
-                );
+        .groupBy(
+                (operator, passengerCount) -> operator,
+                Grouped.with(stringSerde, longSerde)
+        )
+        .aggregate(
+                // Valor inicial para cada chave
+                () -> 0L,
+                // Atualiza o valor atual com o novo
+                (operator, newValue, oldValue) -> newValue, // Aqui mantemos apenas o valor mais recente
+                Materialized.with(stringSerde, longSerde)
+        );
 
-        // Imprimindo operatorPassengers
-        operatorPassengers.toStream()
-                .map((operator, totalPassengers) -> {
-                    System.out.println("Operator Passengers - Operator: " + operator + ", Total Passengers: " + totalPassengers);
-                    return new KeyValue<>(operator, totalPassengers);
-                })
-                .toTable(Materialized.with(Serdes.String(), Serdes.Long()));
+        // Imprimindo operatorPassengers sem acumular os valores
+        operatorPassengers
+        .toStream()
+        .peek((operator, totalPassengers) -> System.out.println("Operator Passengers - Operator: " + operator + ", Total Passengers: " + totalPassengers));
 
         // Soma capacidades por operador
         KTable<String, Integer> operatorCapacities = routesStream
-                .filter((key, route) -> route != null && route.getOperator() != null)
                 .map((key, route) -> new KeyValue<>(route.getOperator(), route.getCapacity()))
-                .groupByKey(Grouped.with(Serdes.String(), Serdes.Integer()))
+                .groupByKey(Grouped.with(stringSerde, integerSerde))
                 .reduce(
                         Integer::sum,
-                        Materialized.with(Serdes.String(), Serdes.Integer())
+                        Materialized.with(stringSerde, integerSerde)
                 )
                 .toStream()
-                .map((operator, totalCapacity) -> {
-                    System.out.println("Operator Capacities - Operator: " + operator + ", Total Capacity: " + totalCapacity);
-                    return new KeyValue<>(operator, totalCapacity);
-                })
-                .toTable(Materialized.with(Serdes.String(), Serdes.Integer()));
+                .peek((operator, totalCapacity) -> System.out.println("Operator Capacities - Operator: " + operator + ", Total Capacity: " + totalCapacity))
+                .toTable(Materialized.with(stringSerde, integerSerde));
 
         // Calcula ocupação por operador
         KTable<String, Double> operatorOccupancyPercentage = operatorCapacities.join(
@@ -146,23 +136,17 @@ public class MostOccupiedOperator {
                     if (totalCapacity == 0 || totalPassengers == null) return 0.0;
                     return ((double) totalPassengers / totalCapacity) * 100;
                 },
-                Materialized.with(Serdes.String(), Serdes.Double())
+                Materialized.with(stringSerde, doubleSerde)
         )
         .toStream()
-        .map((operator, occupancy) -> {
-            System.out.println("Operator Occupancy - Operator: " + operator + ", Occupancy Percentage: " + occupancy);
-            return new KeyValue<>(operator, occupancy);
-        })
-        .toTable(Materialized.with(Serdes.String(), Serdes.Double()));
+        .peek((operator, occupancy) -> System.out.println("Operator Occupancy - Operator: " + operator + ", Occupancy Percentage: " + occupancy))
+        .toTable(Materialized.with(stringSerde, doubleSerde));
 
         // Determina operador com maior ocupação
         operatorOccupancyPercentage.toStream()
                 .map((operator, occupancyPercentage) -> KeyValue.pair("most_occupied_operator", operator + ":" + occupancyPercentage)) // Concatena operador e taxa
-                .map((key, value) -> {
-                    System.out.println("Mapped for Aggregation - Key: " + key + ", Value: " + value);
-                    return new KeyValue<>(key, value);
-                })
-                .groupByKey(Grouped.with(Serdes.String(), Serdes.String())) // Agrupa pela chave fixa
+                .peek((key, value) -> System.out.println("Mapped for Aggregation - Key: " + key + ", Value: " + value))
+                .groupByKey(Grouped.with(stringSerde, stringSerde)) // Agrupa pela chave fixa
                 .aggregate(
                         () -> "", // Estado inicial vazio
                         (key, newValue, currentMax) -> {
@@ -178,7 +162,7 @@ public class MostOccupiedOperator {
                             // Retorna o operador com maior ocupação
                             return newOccupancy > currentOccupancy ? newValue : currentMax;
                         },
-                        Materialized.with(Serdes.String(), Serdes.String())
+                        Materialized.with(stringSerde, stringSerde)
                 )
                 .toStream()
                 .filter((key, value) -> !value.isEmpty()) // Filtra valores não vazios
