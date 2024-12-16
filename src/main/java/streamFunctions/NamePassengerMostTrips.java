@@ -36,7 +36,7 @@ public class NamePassengerMostTrips {
                 .map((passengerName, tripCount) -> KeyValue.pair("maxTripsPassenger", passengerName + ":" + tripCount))
                 .groupByKey()
                 .aggregate(
-                        () -> "", // Initial state
+                        () -> "",
                         (key, newValue, currentMax) -> {
                             String[] currentParts = currentMax.split(":");
                             String[] newParts = newValue.split(":");
@@ -44,7 +44,7 @@ public class NamePassengerMostTrips {
                             long currentCount = currentParts.length > 1 ? Long.parseLong(currentParts[1]) : 0;
                             long newCount = newParts.length > 1 ? Long.parseLong(newParts[1]) : 0;
 
-                            // Return the passenger with the higher trip count
+                            
                             return newCount > currentCount ? newValue : currentMax;
                         },
                         Materialized.with(Serdes.String(), Serdes.String())
