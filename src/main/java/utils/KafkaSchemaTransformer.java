@@ -31,6 +31,10 @@ public class KafkaSchemaTransformer {
         producerProps.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         producerProps.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 
+
+        KafkaTopicUtils topicUtils = new KafkaTopicUtils(producerProps);
+        topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
+
         try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProps);
              KafkaProducer<String, String> producer = new KafkaProducer<>(producerProps)) {
 

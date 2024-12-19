@@ -12,7 +12,7 @@
 kafka-console-producer.sh --bootstrap-server broker1:9092 --topic test_topic
 
 # Runs one consumer connected to the bootstrap-server broker1:9092
-kafka-console-consumer.sh --bootstrap-server broker1:9092 --topic test_topic
+kafka-console-consumer.sh --bootstrap-server broker1:9092 --topic projeto3_average_passengers_per_transport_types
 
 # Runs one consumer that reads all historical data from the beginning
 kafka-console-consumer.sh --bootstrap-server broker1:9092 --topic test_topic --from-beginning
@@ -47,6 +47,7 @@ psql -h database -p 5432 -U postgres -d project3
 curl -X POST http://connect:8083/connectors -H "Content-Type: application/json" -d @workspace/config/sink-passangers_per_route.json
 kafka-topics.sh --bootstrap-server broker1:9092 --create --topic Trips_topic --partitions 3
 kafka-topics.sh --bootstrap-server broker1:9092 --create --topic Routes_topic --partitions 3
+kafka-topics.sh --bootstrap-server broker1:9092 --create --topic DBInfo- --partitions 3
 
 
 kafka-topics.sh --bootstrap-server broker1:9092 --describe --topic _connect_configs
