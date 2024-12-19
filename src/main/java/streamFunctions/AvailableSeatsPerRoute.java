@@ -21,27 +21,27 @@ public class AvailableSeatsPerRoute {
 
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
 
-        // Usa serializer e deserializer personalizados para Route
+
         JsonDeserializer<Route> routeDeserializer = new JsonDeserializer<>(Route.class);
         JsonSerializer<Route> routeSerializer = new JsonSerializer<>();
 
-        // Configura o stream com serializer e deserializer personalizados
+
         KStream<String, Route> routesStream = builder.stream(
             INPUT_ROUTES_TOPIC,
             Consumed.with(Serdes.String(), Serdes.serdeFrom(routeSerializer, routeDeserializer))
         );
 
-        // Soma das capacidades das rotas agrupadas por routeId
+        //Soma das capacidades das rotas agrupadas por routeId
         KTable<String, Integer> routeCapacities = routesStream
-            .filter((key, route) -> route != null && route.getRouteId() != null) //Filtra mensagens inválidas
-            .groupBy((key, route) -> route.getRouteId()) //Agrupa por routeId
+            .filter((key, route) -> route != null && route.getRouteId() != null)
+            .groupBy((key, route) -> route.getRouteId())
             .aggregate(
-                () -> 0, // Capacidade inicial = 0
-                (routeId, route, totalCapacity) -> totalCapacity + route.getCapacity(), // Soma as capacidades
+                () -> 0,
+                (routeId, route, totalCapacity) -> totalCapacity + route.getCapacity(),
                 Materialized.with(Serdes.String(), Serdes.Integer())
             );
 
-        // Envia o resultado para o tópico de saída
+        //Envia o resultado para o tópico de saída
         routeCapacities.toStream()
             .mapValues(totalCapacity -> {
                 String schema = """

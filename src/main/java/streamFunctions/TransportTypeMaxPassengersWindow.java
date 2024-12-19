@@ -16,50 +16,48 @@ public class TransportTypeMaxPassengersWindow {
     private static final String OUTPUT_TOPIC = "projeto3_max_transport_type_window";
 
     public static void addTransportTypeMaxPassengersWindowStream(StreamsBuilder builder, KafkaTopicUtils topicUtils) {
-        // Garantir que o tópico de saída exista
+
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
 
-        // Consome o tópico de trips
         KStream<String, Trip> tripsStream = builder.stream(
                 INPUT_TRIPS_TOPIC,
                 Consumed.with(Serdes.String(), Serdes.serdeFrom(new JsonSerializer<>(), new JsonDeserializer<>(Trip.class)))
         );
 
-        // Contagem de viagens por tipo de transporte em uma janela de 1 minuto
+        //Conta viagens por tipo de transporte em uma janela de 1 minuto
         KTable<Windowed<String>, Long> passengersByTransportType = tripsStream
-                .filter((key, trip) -> trip != null && trip.getTransportType() != null) // Filtra valores nulos
+                .filter((key, trip) -> trip != null && trip.getTransportType() != null)
                 .groupBy((key, trip) -> trip.getTransportType(),
                         Grouped.with(Serdes.String(), Serdes.serdeFrom(new JsonSerializer<>(), new JsonDeserializer<>(Trip.class))))
-                .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofMinutes(1))) // Tumbling window de 1 minuto
-                .count(Materialized.with(Serdes.String(), Serdes.Long())); // Conta o número de viagens (passageiros)
+                .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofMinutes(1))) //Tumbling window de 1 minuto
+                .count(Materialized.with(Serdes.String(), Serdes.Long()));
 
-        // Encontrar o tipo de transporte com o maior número de passageiros em uma tumbling window
+        //Encontra o tipo de transporte com o maior número de passageiros em uma tumbling window
         KStream<String, String> maxTransportTypeStream = passengersByTransportType
                 .toStream()
                 .map((windowedKey, passengerCount) -> KeyValue.pair(
-                        "maxPassengersTransportTypeWindow_" + windowedKey.window().startTime().toString(), // Define a chave da janela
-                        windowedKey.key() + ":" + passengerCount)) // Adiciona tipo e contagem como valor temporário
-                .groupByKey(Grouped.with(Serdes.String(), Serdes.String())) // Reagrupa pela chave gerada
+                        "maxPassengersTransportTypeWindow_" + windowedKey.window().startTime().toString(), //Define a chave da janela
+                        windowedKey.key() + ":" + passengerCount))
+                .groupByKey(Grouped.with(Serdes.String(), Serdes.String()))
                 .aggregate(
-                        () -> "", // Estado inicial vazio
+                        () -> "",
                         (key, newValue, currentMax) -> {
-                            // Divide o estado atual e o novo valor para comparar
                             String[] currentParts = currentMax.split(":");
                             String[] newParts = newValue.split(":");
                             long currentCount = currentParts.length > 1 ? Long.parseLong(currentParts[1]) : 0;
                             long newCount = newParts.length > 1 ? Long.parseLong(newParts[1]) : 0;
-                            // Retorna o maior entre o atual e o novo
+
                             return newCount > currentCount ? newValue : currentMax;
                         },
                         Materialized.with(Serdes.String(), Serdes.String())
                 )
                 .toStream()
-                .filter((key, value) -> !value.isEmpty()) // Filtra valores inválidos
+                .filter((key, value) -> !value.isEmpty())
                 .map((key, value) -> {
                     String[] parts = value.split(":");
                     String transportType = parts[0];
                     long maxPassengers = Long.parseLong(parts[1]);
-                    // Formatar o resultado como JSON
+
                     String schema = """
                         {
                             \"type\": \"struct\",
@@ -73,12 +71,12 @@ public class TransportTypeMaxPassengersWindow {
                             "{\"transportType\": \"%s\", \"maxPassengers\": %d}",
                             transportType, maxPassengers
                     );
-                    // Define uma chave fixa para todas as janelas
+
                     return KeyValue.pair("maxPassengersTransportTypeWindow", 
                             String.format("{\"schema\": %s, \"payload\": %s}", schema, payload));
                 });
 
-        // Publicar o resultado no tópico de saída
+                
         maxTransportTypeStream.to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String()));
     }
 }

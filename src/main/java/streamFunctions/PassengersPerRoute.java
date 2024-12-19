@@ -22,20 +22,18 @@ public class PassengersPerRoute {
 
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
 
-        // Usa JsonSerializer e JsonDeserializer para criar o Serde
+
         JsonSerializer<Trip> tripSerializer = new JsonSerializer<>();
         JsonDeserializer<Trip> tripDeserializer = new JsonDeserializer<>(Trip.class);
 
-        // Cria o Serde personalizado para Trip
         var tripSerde = Serdes.serdeFrom(tripSerializer, tripDeserializer);
 
-        // Configura o stream com o Serde personalizado
         KStream<String, Trip> tripsStream = builder.stream(
             INPUT_TRIPS_TOPIC,
             Consumed.with(Serdes.String(), tripSerde)
-        );
+            );
 
-        // Lógica de processamento
+        //Associa trips às routes que tem no id
         KTable<String, Long> passengersPerRoute = tripsStream
                 .filter((key, trip) -> trip != null && trip.getRouteId() != null)
                 .groupBy((key, trip) -> trip.getRouteId())

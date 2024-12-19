@@ -18,7 +18,7 @@ public class RoutesProducer {
     private static final String BOOTSTRAP_SERVERS = "broker1:9092,broker2:9093,broker3:9094";
 
     public static void main(String[] args) {
-        // Configuração do produtor Kafka
+        //Configuração do produtor Kafka
         Properties properties = new Properties();
         properties.put("bootstrap.servers", BOOTSTRAP_SERVERS);
         properties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
@@ -57,7 +57,7 @@ public class RoutesProducer {
                         }
                     });
                 }
-            }, 0, 5000); // 0 delay inicial, 5 segundos de intervalo
+            }, 0, 5000);
 
             System.out.println("Produtor de rotas iniciado. Pressione Ctrl+C para encerrar.");
             Thread.sleep(Long.MAX_VALUE);

@@ -28,33 +28,31 @@ public class MostOccupiedOperator {
         JsonSerializer<Trip> tripSerializer = new JsonSerializer<>();
         JsonDeserializer<Trip> tripDeserializer = new JsonDeserializer<>(Trip.class);
 
-        // Serdes para Route e Trip
         Serde<Route> routeSerde = Serdes.serdeFrom(routeSerializer, routeDeserializer);
         Serde<Trip> tripSerde = Serdes.serdeFrom(tripSerializer, tripDeserializer);
 
-        // Serdes para tipos primitivos
         Serde<Long> longSerde = Serdes.Long();
         Serde<Integer> integerSerde = Serdes.Integer();
         Serde<Double> doubleSerde = Serdes.Double();
         Serde<String> stringSerde = Serdes.String();
 
-        // Fluxo de dados para rotas
+
         KStream<String, Route> routesStream = builder.stream(
-                INPUT_ROUTES_TOPIC,
-                Consumed.with(Serdes.String(), routeSerde)
-        )
-        .filter((key, route) -> route != null && route.getRouteId() != null && route.getOperator() != null)
-        .peek((key, route) -> System.out.println("Routes Stream - Key: " + key + ", Route: " + route));
+                        INPUT_ROUTES_TOPIC,
+                        Consumed.with(Serdes.String(), routeSerde)
+                )
+                .filter((key, route) -> route != null && route.getRouteId() != null && route.getOperator() != null)
+                .peek((key, route) -> System.out.println("Routes Stream - Key: " + key + ", Route: " + route));
 
-        // Fluxo de dados para viagens
-        KStream<String, Trip> tripsStream = builder.stream(
-                INPUT_TRIPS_TOPIC,
-                Consumed.with(Serdes.String(), tripSerde)
-        )
-        .filter((key, trip) -> trip != null && trip.getRouteId() != null)
-        .peek((key, trip) -> System.out.println("Trips Stream - Key: " + key + ", Trip: " + trip));
 
-        // Mapeia Route IDs para operadores
+                KStream<String, Trip> tripsStream = builder.stream(
+                        INPUT_TRIPS_TOPIC,
+                        Consumed.with(Serdes.String(), tripSerde)
+                )
+                .filter((key, trip) -> trip != null && trip.getRouteId() != null)
+                .peek((key, trip) -> System.out.println("Trips Stream - Key: " + key + ", Trip: " + trip));
+
+        //Mapeia Route IDs para operadores
         KTable<String, String> routeToOperator = routesStream
                 .groupBy(
                         (key, route) -> route.getRouteId(),
@@ -69,7 +67,7 @@ public class MostOccupiedOperator {
                 .peek((routeId, operator) -> System.out.println("Route to Operator - RouteID: " + routeId + ", Operator: " + operator))
                 .toTable(Materialized.with(stringSerde, Serdes.String()));
 
-        // Conta passageiros por rota
+        //Conta passageiros por rota
         KTable<String, Long> passengersPerRoute = tripsStream
                 .groupBy(
                         (key, trip) -> trip.getRouteId(),
@@ -80,7 +78,7 @@ public class MostOccupiedOperator {
                 .peek((routeId, passengerCount) -> System.out.println("Passengers per Route - RouteID: " + routeId + ", Count: " + passengerCount))
                 .toTable(Materialized.with(stringSerde, longSerde));
 
-        // Junção de passengersPerRoute com routeToOperator para obter operador e contagem de passageiros
+        //Junção de passengersPerRoute com routeToOperator para obter operador e contagem de passageiros
         KStream<String, KeyValue<String, Long>> operatorPassengerStream = passengersPerRoute
                 .toStream()
                 .join(
@@ -89,7 +87,7 @@ public class MostOccupiedOperator {
                         Joined.with(stringSerde, longSerde, Serdes.String())
                 );
 
-        // Mapeando para operador como chave e passengerCount como valor
+        //Mapeia para operador como chave e passengerCount como valor
         KStream<String, Long> operatorPassengerMappedStream = operatorPassengerStream
                 .map((routeId, operatorPassenger) -> {
                     String operator = operatorPassenger.key;
@@ -98,24 +96,23 @@ public class MostOccupiedOperator {
                     return new KeyValue<>(operator, passengerCount);
                 });
 
-        // Agrupando por operador e somando os passageiros
+        //Agrupa por operador e soma os passageiros
         KTable<String, Long> operatorPassengers = operatorPassengerMappedStream
-        .groupBy(
-                (operator, passengerCount) -> operator,
-                Grouped.with(stringSerde, longSerde)
-        )
-        .aggregate(
-                // Valor inicial para cada chave
-                () -> 0L,
-                // Atualiza o valor atual com o novo
-                (operator, newValue, oldValue) -> newValue, // Aqui mantemos apenas o valor mais recente
-                Materialized.with(stringSerde, longSerde)
-        );
+                .groupBy(
+                        (operator, passengerCount) -> operator,
+                        Grouped.with(stringSerde, longSerde)
+                )
+                .aggregate(
+                        //Valor inicial é zero
+                        () -> 0L,
+                        //Atualiza o valor atual sempre com o mais recente
+                        (operator, newValue, oldValue) -> newValue,
+                        Materialized.with(stringSerde, longSerde)
+                );
 
-        // Imprimindo operatorPassengers sem acumular os valores
         operatorPassengers
-        .toStream()
-        .peek((operator, totalPassengers) -> System.out.println("Operator Passengers - Operator: " + operator + ", Total Passengers: " + totalPassengers));
+                .toStream()
+                .peek((operator, totalPassengers) -> System.out.println("Operator Passengers - Operator: " + operator + ", Total Passengers: " + totalPassengers));
 
         // Soma capacidades por operador
         KTable<String, Integer> operatorCapacities = routesStream
@@ -137,18 +134,18 @@ public class MostOccupiedOperator {
                     return ((double) totalPassengers / totalCapacity) * 100;
                 },
                 Materialized.with(stringSerde, doubleSerde)
-        )
-        .toStream()
-        .peek((operator, occupancy) -> System.out.println("Operator Occupancy - Operator: " + operator + ", Occupancy Percentage: " + occupancy))
-        .toTable(Materialized.with(stringSerde, doubleSerde));
+                )
+                .toStream()
+                .peek((operator, occupancy) -> System.out.println("Operator Occupancy - Operator: " + operator + ", Occupancy Percentage: " + occupancy))
+                .toTable(Materialized.with(stringSerde, doubleSerde));
 
-        // Determina operador com maior ocupação
+        //Determinar operador com maior ocupação
         operatorOccupancyPercentage.toStream()
-                .map((operator, occupancyPercentage) -> KeyValue.pair("most_occupied_operator", operator + ":" + occupancyPercentage)) // Concatena operador e taxa
+                .map((operator, occupancyPercentage) -> KeyValue.pair("most_occupied_operator", operator + ":" + occupancyPercentage))
                 .peek((key, value) -> System.out.println("Mapped for Aggregation - Key: " + key + ", Value: " + value))
-                .groupByKey(Grouped.with(stringSerde, stringSerde)) // Agrupa pela chave fixa
+                .groupByKey(Grouped.with(stringSerde, stringSerde)) //Agrupaçã pela chave fixa
                 .aggregate(
-                        () -> "", // Estado inicial vazio
+                        () -> "",
                         (key, newValue, currentMax) -> {
                             if (currentMax.isEmpty()) {
                                 return newValue;
@@ -159,19 +156,18 @@ public class MostOccupiedOperator {
                             double currentOccupancy = currentParts.length > 1 ? Double.parseDouble(currentParts[1]) : 0.0;
                             double newOccupancy = newParts.length > 1 ? Double.parseDouble(newParts[1]) : 0.0;
 
-                            // Retorna o operador com maior ocupação
+                            //Retorna o operador com maior ocupação
                             return newOccupancy > currentOccupancy ? newValue : currentMax;
                         },
                         Materialized.with(stringSerde, stringSerde)
                 )
                 .toStream()
-                .filter((key, value) -> !value.isEmpty()) // Filtra valores não vazios
+                .filter((key, value) -> !value.isEmpty())
                 .map((key, value) -> {
                     System.out.println("Aggregated Max - Key: " + key + ", Value: " + value);
                     return new KeyValue<>(key, value);
                 })
                 .mapValues(value -> {
-                    // Separa o operador e a taxa de ocupação
                     String[] parts = value.split(":");
                     String operator = parts[0];
                     double occupancyPercentage = parts.length > 1 ? Double.parseDouble(parts[1]) : 0.0;
@@ -198,6 +194,6 @@ public class MostOccupiedOperator {
                     System.out.println("Final JSON - " + jsonResult);
                     return jsonResult;
                 })
-                .to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String())); // Produz no tópico de saída
+                .to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String()));
     }
 }

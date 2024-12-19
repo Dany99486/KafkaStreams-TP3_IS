@@ -29,12 +29,12 @@ public class TripsProducerCenario {
             Random random = new Random(5);
             Timer timer = new Timer();
 
-            // Variável para contar os segundos
+
             final int[] elapsedSeconds = {0};
 
-            // Gera 1 trip a cada 10 segundos
+            //Cria uma trip a cada 10 segundos
             timer.scheduleAtFixedRate(new TimerTask() {
-                int tripCounter = 30;
+                int tripCounter = 1;
 
                 @Override
                 public void run() {
@@ -44,6 +44,7 @@ public class TripsProducerCenario {
                         System.out.println("Passou 1 minuto");
                     }
 
+                    //Rotas do cenario
                     List<Route> availableRoutes = RoutesProducerCenario.recentRoutes;
 
                     if (availableRoutes.isEmpty()) {
@@ -51,10 +52,10 @@ public class TripsProducerCenario {
                         return;
                     }
 
-                    // Escolhe uma rota aleatória
+
                     Route chosenRoute = availableRoutes.get(random.nextInt(availableRoutes.size()));
 
-                    // Cria a trip com base na rota escolhida
+                    //Cria a trip com base na rota escolhida
                     Trip trip = new Trip();
                     trip.setTripId("Trip_" + tripCounter++);
                     trip.setRouteId(chosenRoute.getRouteId());
@@ -63,7 +64,7 @@ public class TripsProducerCenario {
                     trip.setTransportType(chosenRoute.getTransportType());
                     trip.setPassengerName("Passenger_" + random.nextInt(1000));
 
-                    // Envia a trip
+                    //Envia a trip
                     ProducerRecord<String, Trip> record = new ProducerRecord<>(TOPIC_NAME, trip.getTripId(), trip);
                     producer.send(record, (metadata, exception) -> {
                         if (exception != null) {
@@ -74,7 +75,7 @@ public class TripsProducerCenario {
                         }
                     });
                 }
-            }, 0, 10000L); // Começa imediatamente (0 ms) e repete a cada 10 segundos
+            }, 0, 10000L);
 
             System.out.println("Produtor de viagens iniciado. Pressione Ctrl+C para encerrar.");
             Thread.sleep(Long.MAX_VALUE);

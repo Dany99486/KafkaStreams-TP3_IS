@@ -23,42 +23,40 @@ public class TotalCapacityAvailable {
 
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
 
-        // Usa JsonSerializer e JsonDeserializer para Route
         JsonDeserializer<Route> routeDeserializer = new JsonDeserializer<>(Route.class);
         JsonSerializer<Route> routeSerializer = new JsonSerializer<>();
 
-        // Configura o stream com JsonSerializer e JsonDeserializer
         KStream<String, Route> routesStream = builder.stream(
                 INPUT_ROUTES_TOPIC,
                 Consumed.with(Serdes.String(), Serdes.serdeFrom(routeSerializer, routeDeserializer))
-        );
+                );
 
-        // Capacidades por rota
+        //Capacidades por rota
         KTable<String, Integer> routeCapacities = routesStream
-        .filter((key, route) -> route != null) // Apenas verifica se o objeto não é nulo
-        .groupBy(
-                (key, route) -> route.getRouteId(), // Usa o routeId como chave
-                Grouped.with(Serdes.String(), Serdes.serdeFrom(routeSerializer, routeDeserializer))
-        )
-        .aggregate(
-                () -> 0,
-                (routeId, route, totalCapacity) -> totalCapacity + route.getCapacity(), // Assume que getCapacity() sempre retorna um valor válido
-                Materialized.with(Serdes.String(), Serdes.Integer())
-        );
-
-        // Soma total das capacidades
-        KTable<String, Integer> totalCapacity = routeCapacities
+                .filter((key, route) -> route != null)
                 .groupBy(
-                        (routeId, capacity) -> KeyValue.pair("total", capacity), // Agrupa todas as rotas na chave "total"
-                        Grouped.with(Serdes.String(), Serdes.Integer())
+                        (key, route) -> route.getRouteId(), //Usa o routeId como chave
+                        Grouped.with(Serdes.String(), Serdes.serdeFrom(routeSerializer, routeDeserializer))
                 )
-                .reduce(
-                        Integer::sum, // Soma as capacidades
-                        (oldValue, newValue) -> oldValue - newValue, // Remove capacidades antigas
+                .aggregate(
+                        () -> 0,
+                        (routeId, route, totalCapacity) -> totalCapacity + route.getCapacity(),
                         Materialized.with(Serdes.String(), Serdes.Integer())
                 );
 
-        // Escrever o resultado no tópico
+        //Soma total das capacidades
+        KTable<String, Integer> totalCapacity = routeCapacities
+                .groupBy(
+                        (routeId, capacity) -> KeyValue.pair("total", capacity), //Agrupa todas as rotas na chave "total"
+                        Grouped.with(Serdes.String(), Serdes.Integer())
+                )
+                .reduce(
+                        Integer::sum, //Soma as capacidades
+                        (oldValue, newValue) -> oldValue - newValue, //Remove capacidades antigas
+                        Materialized.with(Serdes.String(), Serdes.Integer())
+                );
+
+        //Escrever o resultado no tópico
         totalCapacity.toStream()
                 .mapValues(totalCapacityValue -> {
                     String schema = """

@@ -27,7 +27,7 @@ public class RoutesProducerCenario {
             Random random = new Random(5);
             Timer timer = new Timer();
 
-            // A cada 1 minuto, cria 5 rotas e pausa
+            //Cria 5 rotas por minuto
             timer.scheduleAtFixedRate(new TimerTask() {
                 int routeCounter = 1;
 
@@ -64,7 +64,7 @@ public class RoutesProducerCenario {
 
                     System.out.println("=== Fim da criação de 5 rotas ===\n");
                 }
-            }, 0, 2 * 60000L); // Executa a cada 2 minutos para garantir 1 minuto de pausa após 5 rotas.
+            }, 0, 2 * 60000L); //Executa a cada 2 minutos
 
             System.out.println("Produtor de rotas iniciado. Pressione Ctrl+C para encerrar.");
             Thread.sleep(Long.MAX_VALUE);

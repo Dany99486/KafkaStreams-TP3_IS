@@ -20,25 +20,22 @@ public class TotalPassengers {
 
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
 
-        // Usa JsonSerializer e JsonDeserializer para Trip
         JsonDeserializer<Trip> tripDeserializer = new JsonDeserializer<>(Trip.class);
         JsonSerializer<Trip> tripSerializer = new JsonSerializer<>();
 
-        // Configura o stream com JsonSerializer e JsonDeserializer
         KStream<String, Trip> tripsStream = builder.stream(
                 INPUT_TRIPS_TOPIC,
                 Consumed.with(Serdes.String(), Serdes.serdeFrom(tripSerializer, tripDeserializer))
         );
 
-        // Processar trips para calcular o total de passageiros
+        //Processar trips para calcular o total de passageiros
         KTable<String, Long> totalPassengers = tripsStream
-                .groupBy((key, trip) -> "totalPassengers") // Agrupa todas as mensagens em uma única chave
-                .count(); // Conta o total de mensagens
+                .groupBy((key, trip) -> "totalPassengers") //Agrupa todas as mensagens em uma única chave
+                .count(); //Conta o total de mensagens
 
-        // Envia o total para o tópico de saída
+        
         totalPassengers.toStream()
                 .mapValues(total -> {
-                    // Gera o JSON com o resultado
                     String schema = """
                     {
                         "type": "struct",

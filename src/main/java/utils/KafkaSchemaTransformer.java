@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
 
+//Para Deserializar as Routes e enviar para um tópico para depois enviar para a Base de Dados num formato com schema e payload
 public class KafkaSchemaTransformer {
 
     private static final String INPUT_TOPIC = "Routes_topic";
@@ -17,7 +18,6 @@ public class KafkaSchemaTransformer {
     private static final String BOOTSTRAP_SERVERS = "broker1:9092,broker2:9093,broker3:9094";
 
     public static void main(String[] args) {
-        // Configuração do consumidor
         Properties consumerProps = new Properties();
         consumerProps.put("bootstrap.servers", BOOTSTRAP_SERVERS);
         consumerProps.put("group.id", "schema-transformer-group");
@@ -25,12 +25,10 @@ public class KafkaSchemaTransformer {
         consumerProps.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
         consumerProps.put("auto.offset.reset", "earliest");
 
-        // Configuração do produtor
         Properties producerProps = new Properties();
         producerProps.put("bootstrap.servers", BOOTSTRAP_SERVERS);
         producerProps.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         producerProps.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-
 
         KafkaTopicUtils topicUtils = new KafkaTopicUtils(producerProps);
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);

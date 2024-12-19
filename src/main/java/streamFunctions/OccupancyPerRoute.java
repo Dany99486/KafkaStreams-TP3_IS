@@ -23,13 +23,12 @@ public class OccupancyPerRoute {
 
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
 
-        // Usa JsonSerializer e JsonDeserializer diretamente
         JsonSerializer<Route> routeSerializer = new JsonSerializer<>();
         JsonDeserializer<Route> routeDeserializer = new JsonDeserializer<>(Route.class);
         JsonSerializer<Trip> tripSerializer = new JsonSerializer<>();
         JsonDeserializer<Trip> tripDeserializer = new JsonDeserializer<>(Trip.class);
 
-        // Configura streams para Routes e Trips
+
         KStream<String, Route> routesStream = builder.stream(
                 INPUT_ROUTES_TOPIC,
                 Consumed.with(Serdes.String(), Serdes.serdeFrom(routeSerializer, routeDeserializer))
@@ -40,7 +39,7 @@ public class OccupancyPerRoute {
                 Consumed.with(Serdes.String(), Serdes.serdeFrom(tripSerializer, tripDeserializer))
         );
 
-        // Processar capacidades de rotas
+        //Capacidades das rotas
         KTable<String, Integer> routeCapacities = routesStream
                 .filter((key, route) -> route != null && route.getRouteId() != null)
                 .groupBy((key, route) -> route.getRouteId())
@@ -50,13 +49,13 @@ public class OccupancyPerRoute {
                         Materialized.with(Serdes.String(), Serdes.Integer())
                 );
 
-        //Processar passageiros por rota
+        //Passageiros por rota
         KTable<String, Long> passengersPerRoute = tripsStream
                 .filter((key, trip) -> trip != null && trip.getRouteId() != null)
                 .groupBy((key, trip) -> trip.getRouteId())
                 .count(Materialized.with(Serdes.String(), Serdes.Long()));
 
-        //Calcular porcentagem de ocupação
+        //Calcula percentagem de ocupação
         KTable<String, Double> occupancyPercentagePerRoute = routeCapacities.leftJoin(
                 passengersPerRoute,
                 (capacity, passengers) -> {
@@ -64,9 +63,9 @@ public class OccupancyPerRoute {
                     return (passengers.doubleValue() / capacity) * 100;
                 },
                 Materialized.with(Serdes.String(), Serdes.Double())
-        );
+                );
 
-        // Escrever resultado no tópico de saída
+        
         occupancyPercentagePerRoute.toStream()
                 .mapValues(occupancyPercentage -> {
                     String schema = """

@@ -30,11 +30,10 @@ public class TripsProducer {
             Timer timer = new Timer();
 
             timer.scheduleAtFixedRate(new TimerTask() {
-                int tripCounter = 1;
+                int tripCounter = 5;
 
                 @Override
                 public void run() {
-                    //Criar o objeto Trip
                     Trip trip = new Trip();
                     trip.setTripId("Trip_" + tripCounter++);
                     trip.setRouteId("Route_" + random.nextInt(100));
@@ -54,7 +53,7 @@ public class TripsProducer {
                         }
                     });
                 }
-            }, 0, 5000); // 0 delay inicial, 5 segundos de intervalo
+            }, 0, 5000);
 
             System.out.println("Produtor de viagens iniciado. Pressione Ctrl+C para encerrar.");
             Thread.sleep(Long.MAX_VALUE);

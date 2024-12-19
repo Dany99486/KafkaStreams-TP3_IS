@@ -17,7 +17,6 @@ public class RouteWithLeastOccupancyPerTransportType {
     private static final String OUTPUT_TOPIC = "projeto3_route_least_occupancy_per_transport_type";
 
     public static void addRouteWithLeastOccupancyPerTransportTypeStream(StreamsBuilder builder, KafkaTopicUtils topicUtils) {
-        // Configuração do Kafka Streams
 
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
 
@@ -31,7 +30,7 @@ public class RouteWithLeastOccupancyPerTransportType {
                 Consumed.with(Serdes.String(), Serdes.serdeFrom(new JsonSerializer<>(), new JsonDeserializer<>(Trip.class)))
         );
 
-        // Processar capacidades de rotas
+        //Capacidades das rotas
         KTable<String, Integer> routeCapacities = routesStream
                 .filter((key, route) -> route != null && route.getRouteId() != null)
                 .groupBy((key, route) -> route.getRouteId())
@@ -47,7 +46,7 @@ public class RouteWithLeastOccupancyPerTransportType {
                 .groupBy((key, trip) -> trip.getRouteId())
                 .count(Materialized.with(Serdes.String(), Serdes.Long()));
 
-        //Calcular porcentagem de ocupação
+        //Calcular percentagem de ocupação
         KTable<String, Double> occupancyPercentagePerRoute = routeCapacities.leftJoin(
                 passengersPerRoute,
                 (capacity, passengers) -> {
@@ -55,48 +54,45 @@ public class RouteWithLeastOccupancyPerTransportType {
                     return (passengers.doubleValue() / capacity) * 100;
                 },
                 Materialized.with(Serdes.String(), Serdes.Double())
-        );//key, value : routeId, occupancyPercentage
+                );
 
-        // Soma passageiros por operador
+        //Soma passageiros por operador
         KStream<String, String> occupancyWithTransportType = occupancyPercentagePerRoute
                 .join(
                         routesStream.toTable(),
                         (occupancyPercentage, route) -> route.getTransportType()+":"+occupancyPercentage
-                )  //key:routeID   value:"transportType:occupancypercentage"
+                )
                 .toStream();
 
 
-        // Encontrar o route com a menor Occupancy
+        //Encontrar a route com a menor ocupação
         KStream<String, String> routeWithLeastOccupancy = occupancyWithTransportType
                 .map((routeID, kv) -> KeyValue.pair(kv.split(":")[0],
                         routeID + ":" + kv.split(":")[1]))
-                .groupByKey() // Agrupa pelo transportType
+                .groupByKey()
                 .aggregate(
-                        () -> "", // Estado inicial
+                        () -> "",
                         (key, newValue, currentMin) -> {
-                            // Divide o estado atual e o novo valor para comparar
                             String[] currentParts = currentMin.split(":");
                             String[] newParts = newValue.split(":");
 
                             double currentCount = currentParts.length > 1 ? Double.parseDouble(currentParts[1]) : Double.MAX_VALUE;
                             double newCount = newParts.length > 1 ? Double.parseDouble(newParts[1]) : Double.MAX_VALUE;
 
-                            // Retorna o menor entre o atual e o novo
                             return newCount < currentCount ? newValue : currentMin;
                         },
                         Materialized.with(Serdes.String(), Serdes.String())
                 )
                 .toStream()
-                .filter((key, value) -> !value.isEmpty()); // Filtra valores inválidos
+                .filter((key, value) -> !value.isEmpty());
 
-        // Escrever resultado no tópico de saída
+
         routeWithLeastOccupancy
                 .mapValues(value -> {
                     String[] parts = value.split(":");
                     String routeId = parts[0];
                     double occupancy = Double.parseDouble(parts[1]);
 
-                    // Definir o esquema do JSON
                     String schema = """
                         {
                             "type": "struct",
@@ -107,16 +103,14 @@ public class RouteWithLeastOccupancyPerTransportType {
                         }
                     """;
 
-                    // Definir o payload do JSON
                     String payload = String.format(
                             "{\"routeId\": \"%s\", \"occupancy\": %.2f}",
                             routeId,occupancy
                     );
 
-                    // Retorna o JSON completo com schema e payload
                     return String.format("{\"schema\": %s, \"payload\": %s}", schema, payload);
                 })
-                .to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String())); // Publica o resultado formatado no tópico de saída
+                .to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String()));
 
     }
 }

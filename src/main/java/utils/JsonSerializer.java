@@ -5,6 +5,7 @@ import org.apache.kafka.common.serialization.Serializer;
 
 import java.util.Map;
 
+//Custom Serializer para as classes Route e Trip
 public class JsonSerializer<T> implements Serializer<T> {
     private final ObjectMapper objectMapper = new ObjectMapper();
 

@@ -18,19 +18,19 @@ public class NamePassengerMostTrips {
 
         topicUtils.createTopicIfNotExists(OUTPUT_TOPIC, 3, (short) 1);
 
-        // Consome o tópico de trips
+        //Consome o tópico de trips
         KStream<String, Trip> tripsStream = builder.stream(
                 INPUT_TRIPS_TOPIC,
                 Consumed.with(Serdes.String(), Serdes.serdeFrom(new JsonSerializer<>(), new JsonDeserializer<>(Trip.class)))
         );
 
-        // Count the number of trips per passenger
+        //Conta o número de trips por passageiro
         KTable<String, Long> passengerTripCounts = tripsStream
-                .filter((key, trip) -> trip != null && trip.getPassengerName() != null) // Filter out null values
-                .groupBy((key, trip) -> trip.getPassengerName()) // Group by passenger name
+                .filter((key, trip) -> trip != null && trip.getPassengerName() != null)
+                .groupBy((key, trip) -> trip.getPassengerName()) //Agrupa por nome do passageiro
                 .count();
 
-        // Find the passenger with the maximum trip count
+        //Encontra o passageiro com o maior numero de trips
         KStream<String, String> maxPassenger = passengerTripCounts
                 .toStream()
                 .map((passengerName, tripCount) -> KeyValue.pair("maxTripsPassenger", passengerName + ":" + tripCount))
@@ -51,13 +51,12 @@ public class NamePassengerMostTrips {
                 )
                 .toStream()
                 .filter((key, value) -> !value.isEmpty());
-        // Escrever resultado no tópico de saída
+
         maxPassenger
                 .mapValues(value -> {
                     String[] parts = value.split(":");
                     String passengerName = parts[0];
 
-                    // Definir o esquema do JSON
                     String schema = """
                         {
                             "type": "struct",
@@ -67,16 +66,14 @@ public class NamePassengerMostTrips {
                         }
                     """;
 
-                    // Definir o payload do JSON
                     String payload = String.format(
                             "{\"passengerName\": \"%s\"}",
                             passengerName
                     );
 
-                    // Retorna o JSON completo com schema e payload
                     return String.format("{\"schema\": %s, \"payload\": %s}", schema, payload);
                 })
-                .to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String())); // Publica o resultado formatado no tópico de saída
+                .to(OUTPUT_TOPIC, Produced.with(Serdes.String(), Serdes.String()));
 
     }
 }
