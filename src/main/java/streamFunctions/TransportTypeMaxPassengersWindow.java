@@ -24,12 +24,12 @@ public class TransportTypeMaxPassengersWindow {
                 Consumed.with(Serdes.String(), Serdes.serdeFrom(new JsonSerializer<>(), new JsonDeserializer<>(Trip.class)))
         );
 
-        //Conta viagens por tipo de transporte em uma janela de 1 minuto
+        //Conta viagens por tipo de transporte em uma janela de 1 hora
         KTable<Windowed<String>, Long> passengersByTransportType = tripsStream
                 .filter((key, trip) -> trip != null && trip.getTransportType() != null)
                 .groupBy((key, trip) -> trip.getTransportType(),
                         Grouped.with(Serdes.String(), Serdes.serdeFrom(new JsonSerializer<>(), new JsonDeserializer<>(Trip.class))))
-                .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofMinutes(1))) //Tumbling window de 1 minuto
+                .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofHours(1))) //Tumbling window de 1 hora
                 .count(Materialized.with(Serdes.String(), Serdes.Long()));
 
         //Encontra o tipo de transporte com o maior número de passageiros em uma tumbling window

@@ -62,10 +62,10 @@ public class LeastOccupiedTransportTypeWindow {
                 )
                 .filter((key, transportType) -> transportType != null);
 
-        //Contagem de passageiros por tipo de transporte em janelas de 1 minuto
+        //Contagem de passageiros por tipo de transporte em janelas de 1 hora
         KTable<Windowed<String>, Long> totalPassengersByTransportTypeWindowed = tripsWithTransportType
                 .groupBy((routeId, transportType) -> transportType, Grouped.with(Serdes.String(), Serdes.String()))
-                .windowedBy(TimeWindows.ofSizeAndGrace(Duration.ofMinutes(1), Duration.ZERO))
+                .windowedBy(TimeWindows.ofSizeAndGrace(Duration.ofHours(1), Duration.ZERO))
                 .count(Materialized.with(Serdes.String(), Serdes.Long()));
 
         //Converte em stream para calcular ocupação
