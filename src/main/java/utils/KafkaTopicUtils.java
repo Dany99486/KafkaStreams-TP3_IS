@@ -9,6 +9,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
+//Para criar os tópicos de todas as streams de uma maneira mais ordenada
 public class KafkaTopicUtils {
 
     private final AdminClient adminClient;

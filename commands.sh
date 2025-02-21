@@ -12,13 +12,13 @@
 kafka-console-producer.sh --bootstrap-server broker1:9092 --topic test_topic
 
 # Runs one consumer connected to the bootstrap-server broker1:9092
-kafka-console-consumer.sh --bootstrap-server broker1:9092 --topic projeto3_occupancy_per_route
+kafka-console-consumer.sh --bootstrap-server broker1:9092 --topic projeto3_average_passengers_per_transport_types
 
 # Runs one consumer that reads all historical data from the beginning
 kafka-console-consumer.sh --bootstrap-server broker1:9092 --topic test_topic --from-beginning
 
 # Create one topic with 3 partitions
-kafka-topics.sh --bootstrap-server broker1:9092 --create --topic test_topic_with_partitions --partitions 3
+kafka-topics.sh --bootstrap-server broker1:9092 --create --topic Trips_topic --partitions 3
 kafka-console-producer.sh --bootstrap-server broker1:9092 --topic test_topic_with_partitions
 kafka-console-consumer.sh --bootstrap-server broker1:9092 --topic test_topic_with_partitions
 
@@ -39,7 +39,16 @@ ls /brokers/ids
 
 # --- Postgresql ---
 
-psql -h postgres -p 5432 -U postgres # Login with user postgres
+psql -h database -p 5432 -U postgres -d project3
 \l               # List databases
 \c project3      # Connect to project3 database
 \dt              # List tables
+
+curl -X POST http://connect:8083/connectors -H "Content-Type: application/json" -d @workspace/config/sink-passangers_per_route.json
+kafka-topics.sh --bootstrap-server broker1:9092 --create --topic Trips_topic --partitions 3
+kafka-topics.sh --bootstrap-server broker1:9092 --create --topic Routes_topic --partitions 3
+kafka-topics.sh --bootstrap-server broker1:9092 --create --topic DBInfo- --partitions 3
+
+
+kafka-topics.sh --bootstrap-server broker1:9092 --describe --topic _connect_configs
+
